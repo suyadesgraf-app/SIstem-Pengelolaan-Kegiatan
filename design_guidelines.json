@@ -1,0 +1,109 @@
+{
+  "theme": "Modern Government / Admin SaaS + Mobile First Flow",
+  "archetype": "ORGANIC & EARTHY + SWISS & HIGH-CONTRAST",
+  "description": "A premium internal management system for BAZNAS BAZIS DKI Jakarta. The design matches the requested PDF specifications (Emerald 700 primary, Inter font, white rounded-2xl cards on light gray background) but elevates it to an award-winning level with 'Plus Jakarta Sans' for premium headings, fluid motion via Framer Motion, and a dedicated mobile-simulator layout for the OCR receipt scanner.",
+  "colors": {
+    "primary": {
+      "default": "#047857",
+      "light": "#10b981",
+      "dark": "#064e3b",
+      "description": "Emerald-700. Used for main CTA, progress indicators, and positive success states."
+    },
+    "secondary": {
+      "default": "#d97706",
+      "description": "Amber-600. Used for pending states, warnings, and secondary highlights."
+    },
+    "accent": {
+      "default": "#0284c7",
+      "description": "Sky-600. Used for informational alerts and active navigation items."
+    },
+    "background": {
+      "app": "#f8fafc",
+      "card": "#ffffff",
+      "document": "#fcfcfc"
+    },
+    "text": {
+      "primary": "#0f172a",
+      "secondary": "#475569",
+      "muted": "#94a3b8"
+    },
+    "border": {
+      "default": "#e2e8f0",
+      "active": "#cbd5e1"
+    }
+  },
+  "typography": {
+    "headings": {
+      "family": "'Plus Jakarta Sans', sans-serif",
+      "weights": ["600", "700", "800"],
+      "tracking": "tracking-tight",
+      "instruction": "Do not use Inter for headings. Plus Jakarta Sans adds a premium, modern government feel that perfectly suits the context while remaining highly legible."
+    },
+    "body": {
+      "family": "'Inter', sans-serif",
+      "weights": ["400", "500"],
+      "instruction": "As requested in the PDF spec, use Inter for all dashboard tables, forms, and small text for maximum legibility."
+    },
+    "document": {
+      "family": "'Merriweather', serif",
+      "instruction": "Use exclusively for the A4 KAK Document preview to replicate a formal, printable government document."
+    }
+  },
+  "layouts": {
+    "dashboard": {
+      "grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "cards": "bg-white rounded-2xl border border-gray-200 shadow-sm p-6",
+      "header": "Sticky header with backdrop-blur-md bg-white/80, z-50",
+      "sidebar": "Profile card on the left sidebar for quick context, vertical or horizontal tab navigation depending on viewport."
+    },
+    "mobile_simulator": {
+      "container": "relative mx-auto border-gray-800 dark:border-gray-800 bg-gray-800 border-[14px] rounded-[2.5rem] h-[600px] w-[300px] shadow-xl overflow-hidden",
+      "content": "bg-gray-50 h-full w-full overflow-y-auto scrollbar-hide",
+      "instruction": "For the 'Relawan Lapangan' OCR feature, render a mobile phone frame in the center of the screen to simulate the mobile-first field experience."
+    },
+    "kak_document": {
+      "container": "max-w-4xl mx-auto bg-white shadow-lg p-12 lg:p-24 aspect-[1/1.414] border border-gray-200",
+      "instruction": "Render the AI-generated KAK and Report exactly like an A4 paper in a preview window."
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "Use sparingly on sticky headers or modal overlays (bg-white/70 backdrop-blur-xl border-b border-gray-200).",
+    "shadows": "Keep shadows very tight and clean (shadow-sm) as per PDF request. No diffuse massive shadows.",
+    "borders": "1px solid borders (border-gray-200) on all cards to create structure and separation from the #f8fafc background."
+  },
+  "motion": {
+    "page_transitions": "Framer motion opacity and y-axis subtle slide (initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}).",
+    "micro_interactions": "Hover states on table rows (bg-slate-50), slight scale on stat cards (hover:-translate-y-1), and interactive button clicks (active:scale-95).",
+    "scrolling": "Implement Lenis smooth scrolling for the landing/dashboard wrapper."
+  },
+  "components_strategy": {
+    "buttons": "Pill-shaped or rounded-lg with strong primary colors. Hover states must darken the background color slightly. No transparent text on hover.",
+    "tables": "Shadcn UI tables with sticky headers. Group rows visually if needed. Emerald headers for RAB budget table.",
+    "charts": "Use Chart.js (or Recharts) for 'Budget vs Realization' (Bar) and 'SLA Compliance' (Doughnut). Match the color palette exactly.",
+    "toast": "Use Sonner for all success/error notifications (e.g., 'OCR scan complete', 'KAK Generated').",
+    "ocr_scanner": "Simulate a camera viewfinder with a scanning line animation (framer-motion) over the receipt image, followed by a bottom sheet popping up with extracted OCR fields."
+  },
+  "image_urls": {
+    "login_background": {
+      "url": "https://images.unsplash.com/photo-1689443111287-5c2e129ec756?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwyfHxncmVlbiUyMGdlb21ldHJpYyUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzg4MDIzODgxfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract dark green smooth layers. Use this as a striking split-screen or hero background on the login page."
+    },
+    "receipt_scan_context": {
+      "url": "https://images.unsplash.com/photo-1595079676601-f1adf5be5dee?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwyfHxyZWNlaXB0JTIwc2Nhbm5pbmclMjBtb2JpbGUlMjBhcHB8ZW58MHx8fHwxNzg4MDIzODY2fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Use as a placeholder image inside the mobile OCR simulator before a user 'takes a photo' of the receipt."
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the PDF color codes: Primary Emerald 700 (#047857), App Background #f8fafc.",
+    "Ensure all cards use rounded-2xl, border-gray-200, and shadow-sm.",
+    "Implement 3 distinct tabs/views for roles: Super Admin (Dashboard), Admin/PIC (RAB/KAK Gen), Relawan Lapangan (Mobile OCR).",
+    "For the 'Relawan Lapangan' view, do not build a standard desktop layout. Build a mobile phone frame using tailwind classes and put the OCR scan flow inside it.",
+    "The AI Generate KAK feature must display a formal A4-styled document preview (font-serif, white background, A4 aspect ratio).",
+    "Use Chart.js for the Budget (Bar) and SLA (Doughnut) charts on the dashboard.",
+    "Ensure the application structure allows toggling between the Login page and the Dashboard views seamlessly."
+  ],
+  "accessibility": {
+    "contrast": "Ensure white text on Emerald 700 passes APCA/WCAG. Use Emerald 800 for hover states.",
+    "testing": "All key elements must have data-testid attributes (e.g., data-testid='login-submit', data-testid='ocr-scan-btn')."
+  }
+}

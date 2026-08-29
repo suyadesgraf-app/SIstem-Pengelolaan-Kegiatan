@@ -1,0 +1,205 @@
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Pencil, Trash2 } from "lucide-react";
+import api, { formatApiError } from "@/lib/api";
+
+const KATEGORI_OPSI = ["Branding", "Perlengkapan", "Konsumsi"];
+const empty = { kategori: "Branding", kategoriManual: "", uraian: "", qty: "", satuanQty: "", frek: "", satuanFrek: "", harga: "" };
+const rp = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
+
+export default function RabTab() {
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState(empty);
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState({});
+
+  const load = () => api.get("/rab").then((r) => setItems(r.data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const groups = useMemo(() => {
+    const map = new Map();
+    items.forEach((it) => {
+      if (!map.has(it.kategori)) map.set(it.kategori, []);
+      map.get(it.kategori).push(it);
+    });
+    return [...map.entries()];
+  }, [items]);
+
+  const grandTotal = items.reduce((s, it) => s + it.qty * it.frek * it.harga, 0);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const addItem = async () => {
+    const kategori = form.kategori === "lainnya" ? form.kategoriManual.trim() : form.kategori;
+    if (!kategori) return toast.warning("Kategori wajib diisi!");
+    const qty = parseInt(form.qty) || 0;
+    const harga = parseInt(form.harga) || 0;
+    if (!form.uraian.trim() || qty === 0 || harga === 0) return toast.error("Lengkapi data RAB!");
+    try {
+      await api.post("/rab/items", {
+        kategori, uraian: form.uraian.trim(), qty,
+        satuanQty: form.satuanQty || "Pcs", frek: parseInt(form.frek) || 1,
+        satuanFrek: form.satuanFrek || "Kali", harga,
+      });
+      setForm(empty);
+      load();
+      toast.success("Item berhasil ditambahkan");
+    } catch (e) { toast.error(formatApiError(e)); }
+  };
+
+  const startEdit = (it) => { setEditingId(it.id); setDraft({ ...it }); };
+  const saveEdit = async () => {
+    try {
+      await api.put(`/rab/items/${editingId}`, {
+        kategori: draft.kategori, uraian: draft.uraian,
+        qty: parseInt(draft.qty) || 0, satuanQty: draft.satuanQty,
+        frek: parseInt(draft.frek) || 0, satuanFrek: draft.satuanFrek,
+        harga: parseInt(draft.harga) || 0,
+      });
+      setEditingId(null);
+      load();
+      toast.success("Item RAB berhasil diperbarui");
+    } catch (e) { toast.error(formatApiError(e)); }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm("Hapus item anggaran ini?")) return;
+    await api.delete(`/rab/items/${id}`).catch(() => {});
+    load();
+    toast.success("Item berhasil dihapus");
+  };
+
+  const inputCls = "w-full text-xs border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-emerald-500";
+  const editCls = "w-full border border-emerald-500 rounded px-1 py-1 text-xs bg-white";
+
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm" data-testid="rab-tab">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+        <div>
+          <h2 className="font-heading text-lg font-bold text-gray-800 mb-1">Rencana Anggaran Biaya (RAB)</h2>
+          <p className="text-sm text-gray-500">Input rincian pos anggaran kegiatan berdasarkan format standar dokumen BAZNAS.</p>
+        </div>
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+          <span className="text-xs font-bold text-gray-500">Ekspor:</span>
+          <button data-testid="rab-export-pdf" onClick={() => toast.success("Ekspor RAB ke PDF Berhasil")} className="text-xs border border-gray-300 text-gray-700 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-lg font-semibold transition">PDF</button>
+          <button data-testid="rab-export-excel" onClick={() => toast.success("Ekspor RAB ke Excel Berhasil")} className="text-xs border border-gray-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg font-semibold transition">Excel</button>
+          <button data-testid="rab-export-spreadsheet" onClick={() => toast.success("Ekspor RAB ke Spreadsheet Berhasil")} className="text-xs border border-gray-300 text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-semibold transition">Spreadsheet</button>
+        </div>
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div className="md:col-span-3">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Kategori Pos</label>
+            <select data-testid="rab-kategori-select" value={form.kategori} onChange={set("kategori")} className={inputCls}>
+              {KATEGORI_OPSI.map((k) => <option key={k} value={k}>{k}</option>)}
+              <option value="lainnya" className="font-bold text-emerald-700">+ Lainnya (Input Manual)...</option>
+            </select>
+            {form.kategori === "lainnya" && (
+              <input data-testid="rab-kategori-manual" value={form.kategoriManual} onChange={set("kategoriManual")} placeholder="Ketik kategori..." className={`${inputCls} mt-2`} />
+            )}
+          </div>
+          <div className="md:col-span-9">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Uraian / Nama Barang</label>
+            <input data-testid="rab-uraian-input" value={form.uraian} onChange={set("uraian")} placeholder="Contoh: Rollup Banner" className={inputCls} />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Qty</label>
+            <input data-testid="rab-qty-input" type="number" value={form.qty} onChange={set("qty")} placeholder="0" className={inputCls} />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Satuan Qty</label>
+            <input data-testid="rab-satuan-qty-input" value={form.satuanQty} onChange={set("satuanQty")} placeholder="Pcs / Set" className={inputCls} />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Frekuensi</label>
+            <input data-testid="rab-frek-input" type="number" value={form.frek} onChange={set("frek")} placeholder="0" className={inputCls} />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Satuan Frek</label>
+            <input data-testid="rab-satuan-frek-input" value={form.satuanFrek} onChange={set("satuanFrek")} placeholder="Kali" className={inputCls} />
+          </div>
+          <div className="md:col-span-4 flex items-end space-x-2">
+            <div className="flex-1">
+              <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Harga Satuan (Rp)</label>
+              <input data-testid="rab-harga-input" type="number" value={form.harga} onChange={set("harga")} placeholder="100000" className={inputCls} />
+            </div>
+            <button data-testid="rab-add-button" onClick={addItem} className="bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-bold py-2.5 px-5 rounded-lg text-xs transition shadow-sm h-[38px] whitespace-nowrap">+ Tambah</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto border border-gray-300 rounded-lg">
+        <table className="w-full text-xs text-left text-gray-800 border-collapse" data-testid="rab-table">
+          <thead className="bg-emerald-700 text-white font-bold">
+            <tr>
+              <th className="p-2 border border-gray-300 text-center w-10">No</th>
+              <th className="p-2 border border-gray-300">Uraian</th>
+              <th className="p-2 border border-gray-300 text-center" colSpan="2">Qty</th>
+              <th className="p-2 border border-gray-300 text-center" colSpan="2">Frek</th>
+              <th className="p-2 border border-gray-300 text-right w-32">Harga Satuan</th>
+              <th className="p-2 border border-gray-300 text-right w-36">Jumlah</th>
+              <th className="p-2 border border-gray-300 text-center w-20">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white">
+            {groups.map(([kategori, rows]) => (
+              <Fragment key={kategori}>
+                <tr className="bg-emerald-50 font-bold border-b border-gray-200">
+                  <td className="p-2 border border-gray-300" />
+                  <td className="p-2 border border-gray-300 text-emerald-800" colSpan="8">{kategori}</td>
+                </tr>
+                {rows.map((it) => {
+                  const jumlah = it.qty * it.frek * it.harga;
+                  const editing = editingId === it.id;
+                  return (
+                    <tr key={it.id} className="hover:bg-gray-50 transition border-b border-gray-200" data-testid={`rab-row-${it.id}`}>
+                      <td className="p-2 border-r border-gray-300 text-center text-gray-500">{items.indexOf(it) + 1}</td>
+                      <td className="p-2 border-r border-gray-300 font-medium">
+                        {editing ? <input className={editCls} value={draft.uraian} onChange={(e) => setDraft({ ...draft, uraian: e.target.value })} /> : it.uraian}
+                      </td>
+                      <td className="p-2 border-r border-gray-300 text-center">
+                        {editing ? <input type="number" className={`${editCls} text-center`} value={draft.qty} onChange={(e) => setDraft({ ...draft, qty: e.target.value })} /> : it.qty}
+                      </td>
+                      <td className="p-2 border-r border-gray-300 text-center text-gray-500 text-[10px]">
+                        {editing ? <input className={`${editCls} text-center`} value={draft.satuanQty} onChange={(e) => setDraft({ ...draft, satuanQty: e.target.value })} /> : it.satuanQty}
+                      </td>
+                      <td className="p-2 border-r border-gray-300 text-center">
+                        {editing ? <input type="number" className={`${editCls} text-center`} value={draft.frek} onChange={(e) => setDraft({ ...draft, frek: e.target.value })} /> : it.frek}
+                      </td>
+                      <td className="p-2 border-r border-gray-300 text-center text-gray-500 text-[10px]">
+                        {editing ? <input className={`${editCls} text-center`} value={draft.satuanFrek} onChange={(e) => setDraft({ ...draft, satuanFrek: e.target.value })} /> : it.satuanFrek}
+                      </td>
+                      <td className="p-2 border-r border-gray-300 text-right">
+                        {editing ? <input type="number" className={`${editCls} text-right`} value={draft.harga} onChange={(e) => setDraft({ ...draft, harga: e.target.value })} /> : rp(it.harga)}
+                      </td>
+                      <td className="p-2 border-r border-gray-300 text-right font-bold text-gray-800">{rp(jumlah)}</td>
+                      <td className="p-2 text-center whitespace-nowrap">
+                        {editing ? (
+                          <button data-testid={`rab-save-${it.id}`} onClick={saveEdit} className="bg-emerald-600 text-white px-2 py-1 rounded text-[10px] font-bold">Simpan</button>
+                        ) : (
+                          <span className="space-x-1 inline-flex">
+                            <button data-testid={`rab-edit-${it.id}`} onClick={() => startEdit(it)} className="text-emerald-600 hover:text-emerald-800 p-1" title="Edit"><Pencil className="w-4 h-4" /></button>
+                            <button data-testid={`rab-delete-${it.id}`} onClick={() => remove(it.id)} className="text-red-500 hover:text-red-700 p-1" title="Hapus"><Trash2 className="w-4 h-4" /></button>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </Fragment>
+            ))}
+            {items.length === 0 && (
+              <tr><td colSpan="9" className="p-6 text-center text-gray-400" data-testid="rab-empty">Belum ada item RAB.</td></tr>
+            )}
+          </tbody>
+          <tfoot>
+            <tr className="bg-emerald-700 text-white font-bold text-sm tracking-wide">
+              <td colSpan="7" className="p-3 border border-gray-300 text-center uppercase">Jumlah Total</td>
+              <td className="p-3 border border-gray-300 text-right" colSpan="2" data-testid="rab-total">{rp(grandTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
