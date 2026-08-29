@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Camera, ScanLine, Home, History, LogOut, Wallet, ReceiptText, Signal } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { fileToResizedBase64 } from "@/lib/ocr";
+import ModelPicker from "@/components/ModelPicker";
 import { useAuth } from "@/context/AuthContext";
 
 const rp = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
@@ -17,6 +18,7 @@ export default function RelawanApp() {
   const [projects, setProjects] = useState([]);
   const [image, setImage] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [provider, setProvider] = useState("gemini");
   const [form, setForm] = useState({ merchant: "", nominal: "", tanggal: "", kegiatan: "" });
   const fileRef = useRef(null);
 
@@ -39,7 +41,7 @@ export default function RelawanApp() {
     if (!image) return toast.warning("Ambil foto nota terlebih dahulu");
     setScanning(true);
     try {
-      const r = await api.post("/ai/ocr", { image_base64: image });
+      const r = await api.post("/ai/ocr", { image_base64: image, provider });
       setForm({
         merchant: r.data.merchant || "",
         nominal: r.data.nominal ? String(r.data.nominal) : "",
@@ -164,6 +166,7 @@ export default function RelawanApp() {
                     <ScanLine className="w-4 h-4" /><span>{scanning ? "Memindai..." : "Pindai AI"}</span>
                   </button>
                 </div>
+                <ModelPicker value={provider} onChange={setProvider} kind="ocr" compact />
                 <AnimatePresence>
                   {(form.merchant || scanning) && (
                     <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-white rounded-2xl border border-emerald-200 p-4 space-y-3 shadow-sm" data-testid="relawan-ocr-result">

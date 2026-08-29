@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, Upload, Send, FileCheck2 } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
+import ModelPicker from "@/components/ModelPicker";
 
 const LAMPIRAN = [
   "Nota-nota Pembelian Barang/Jasa",
@@ -19,6 +20,7 @@ export default function LaporanTab() {
   const [points, setPoints] = useState("");
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [provider, setProvider] = useState("gemini");
   const [uploaded, setUploaded] = useState({});
   const kakFileRef = useRef(null);
 
@@ -40,9 +42,9 @@ export default function LaporanTab() {
     if (!points.trim()) return toast.warning("Masukkan poin mentah lapangan terlebih dahulu");
     setLoading(true);
     try {
-      const r = await api.post("/ai/report", { nomor_indeks: nomorIndeks, points, kak_name: kakName });
+      const r = await api.post("/ai/report", { nomor_indeks: nomorIndeks, points, kak_name: kakName, provider });
       setDoc(r.data);
-      toast.success("Narasi Laporan AI berhasil dibuat merujuk KAK TTD!");
+      toast.success(`Laporan AI berhasil dibuat (${provider === "gemini" ? "Gemini 3.1 Pro" : "GPT-5.4"})!`);
     } catch (e2) {
       toast.error(formatApiError(e2));
     } finally {
@@ -84,6 +86,7 @@ export default function LaporanTab() {
             className="w-full text-sm border border-gray-300 rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none transition"
             placeholder="Contoh: Kegiatan terlaksana 24 Agustus, 19.000 penerima manfaat terlayani, sisa anggaran 4%..."
           />
+          <ModelPicker value={provider} onChange={setProvider} kind="doc" />
           <button
             onClick={generate} disabled={loading} data-testid="laporan-generate-button"
             className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-heading font-bold py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center space-x-2 disabled:opacity-60"

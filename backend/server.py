@@ -259,9 +259,22 @@ async def get_nota(rid: str, user=Depends(get_current_user)):
 
 # ---------- AI (LLM) ----------
 
-async def llm_complete(system: str, text: str, image_b64: Optional[str] = None, model: str = "gpt-5.4") -> str:
+MODEL_MAP = {
+    "openai": {"doc": "gpt-5.4", "ocr": "gpt-5.4-mini"},
+    "gemini": {"doc": "gemini-3.1-pro-preview", "ocr": "gemini-3.7-flash"},
+}
+
+
+def resolve_model(provider: str, kind: str):
+    if provider not in MODEL_MAP:
+        raise HTTPException(400, "Provider AI tidak dikenal (openai/gemini)")
+    return provider, MODEL_MAP[provider][kind]
+
+
+async def llm_complete(system: str, text: str, image_b64: Optional[str] = None,
+                       provider: str = "openai", model: str = "gpt-5.4") -> str:
     chat = LlmChat(api_key=LLM_KEY, session_id=str(uuid.uuid4()),
-                   system_message=system).with_model("openai", model)
+                   system_message=system).with_model(provider, model)
     kwargs = {"text": text}
     if image_b64:
         kwargs["file_contents"] = [ImageContent(image_base64=image_b64)]
@@ -284,17 +297,19 @@ def parse_llm_json(raw: str):
 
 class OcrIn(BaseModel):
     image_base64: str
+    provider: str = "openai"
 
 
 @api.post("/ai/ocr")
 async def ocr_nota(body: OcrIn, user=Depends(get_current_user)):
+    prov, model = resolve_model(body.provider, "ocr")
     b64 = body.image_base64.split(",", 1)[-1]
     system = ('Anda mesin OCR nota/kuitansi Indonesia. Balas HANYA JSON valid tanpa teks lain: '
               '{"merchant": str, "nominal": number, "tanggal": "DD/MM/YYYY"}. '
               'nominal adalah integer rupiah tanpa titik atau "Rp". Jika tidak terbaca, isi string kosong/0.')
     try:
         raw = await llm_complete(system, "Ekstrak nama merchant, total nominal, dan tanggal dari foto nota ini.",
-                                 image_b64=b64, model="gpt-5.4-mini")
+                                 image_b64=b64, provider=prov, model=model)
         return parse_llm_json(raw)
     except Exception as e:
         logger.error(f"OCR error: {e}")
@@ -309,16 +324,18 @@ KAK_SECTIONS = ["1. Pendahuluan", "2. Deskripsi Program", "3. Landasan Hukum", "
 
 class KakIn(BaseModel):
     raw_text: str
+    provider: str = "openai"
 
 
 @api.post("/ai/kak")
 async def generate_kak(body: KakIn, user=Depends(get_current_user)):
+    prov, model = resolve_model(body.provider, "doc")
     system = ("Anda penyusun dokumen resmi BAZNAS BAZIS Provinsi DKI Jakarta. Susun Kerangka Acuan Kegiatan (KAK) "
               "formal dalam Bahasa Indonesia baku berdasarkan poin mentah pengguna. Balas HANYA JSON valid: "
               '{"title": str, "sections": [{"heading": str, "body": str}]} dengan tepat 12 bagian berjudul persis: '
               + "; ".join(KAK_SECTIONS) + ". Landasan hukum merujuk UU No. 23 Tahun 2011 tentang Pengelolaan Zakat.")
     try:
-        raw = await llm_complete(system, f"Poin mentah kegiatan:\n{body.raw_text}")
+        raw = await llm_complete(system, f"Poin mentah kegiatan:\n{body.raw_text}", provider=prov, model=model)
         return parse_llm_json(raw)
     except Exception as e:
         logger.error(f"KAK error: {e}")
@@ -329,10 +346,12 @@ class ReportIn(BaseModel):
     nomor_indeks: str
     points: str
     kak_name: Optional[str] = None
+    provider: str = "openai"
 
 
 @api.post("/ai/report")
 async def generate_report(body: ReportIn, user=Depends(get_current_user)):
+    prov, model = resolve_model(body.provider, "doc")
     system = ("Anda penyusun Laporan Pertanggungjawaban (LPJ) resmi BAZNAS BAZIS Provinsi DKI Jakarta. "
               "Balas HANYA JSON valid: {\"title\": str, \"sections\": [{\"heading\": str, \"body\": str}]} "
               "dengan bagian: BAB I: PENDAHULUAN; BAB II: PELAKSANAAN KEGIATAN; BAB III: REALISASI ANGGARAN; "
@@ -340,7 +359,8 @@ async def generate_report(body: ReportIn, user=Depends(get_current_user)):
     try:
         raw = await llm_complete(
             system,
-            f"Nomor indeks: {body.nomor_indeks}\nReferensi KAK: {body.kak_name or '-'}\nPoin lapangan:\n{body.points}")
+            f"Nomor indeks: {body.nomor_indeks}\nReferensi KAK: {body.kak_name or '-'}\nPoin lapangan:\n{body.points}",
+            provider=prov, model=model)
         return parse_llm_json(raw)
     except Exception as e:
         logger.error(f"Report error: {e}")

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Camera, ScanLine, Pencil, Trash2, Signal, X } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { fileToResizedBase64 } from "@/lib/ocr";
+import ModelPicker from "@/components/ModelPicker";
 
 const rp = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
 
@@ -12,6 +13,7 @@ export default function RealisasiTab() {
   const [projects, setProjects] = useState([]);
   const [image, setImage] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [provider, setProvider] = useState("gemini");
   const [form, setForm] = useState({ merchant: "", nominal: "", tanggal: "", kegiatan: "" });
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});
@@ -36,7 +38,7 @@ export default function RealisasiTab() {
     if (!image) return toast.warning("Ambil/unggah foto nota terlebih dahulu");
     setScanning(true);
     try {
-      const r = await api.post("/ai/ocr", { image_base64: image });
+      const r = await api.post("/ai/ocr", { image_base64: image, provider });
       setForm((f) => ({
         ...f,
         merchant: r.data.merchant || "",
@@ -151,6 +153,7 @@ export default function RealisasiTab() {
                       <ScanLine className="w-3.5 h-3.5" /><span>{scanning ? "Memindai..." : "Pindai AI"}</span>
                     </button>
                   </div>
+                  <ModelPicker value={provider} onChange={setProvider} kind="ocr" compact />
 
                   <AnimatePresence>
                     {(form.merchant || scanning) && (

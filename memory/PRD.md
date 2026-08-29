@@ -22,6 +22,7 @@
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
 
 ## Yang Sudah Diimplementasikan (29 Agustus 2026)
+- Integrasi model Gemini berdampingan dengan OpenAI: pemilih model (ModelPicker) di semua fitur AI. Gemini 3.1 Pro Preview untuk KAK/Laporan, Gemini 3.7 Flash untuk OCR nota; OpenAI gpt-5.4 / gpt-5.4-mini tetap tersedia. Backend /ai/kak, /ai/report, /ai/ocr menerima param `provider` (openai|gemini) dengan validasi 400 untuk provider tak dikenal
 - Login 3 peran + seed users + proteksi brute force (lockout 15 menit setelah 5x gagal)
 - Dashboard: stat widgets (Plafon, Realisasi, SLA, Total Kegiatan), daftar kegiatan + filter, grafik Bar & Doughnut
 - RAB: form input + kategori manual, tabel grup kategori, inline edit, hapus, total otomatis
