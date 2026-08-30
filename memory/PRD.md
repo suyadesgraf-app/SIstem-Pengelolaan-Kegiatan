@@ -101,6 +101,11 @@
 - Nama file export berubah menjadi `KAK-Nama Kegiatan.pdf` dan `KAK-Nama Kegiatan.docx`.
 - Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, curl export PDF/Word valid dengan nama file kegiatan, Playwright memastikan tabel KAK berisi 11 komponen tanpa baris RAB, serta edit manual preview tersimpan dan terkonfirmasi via API. Data uji sudah dibersihkan.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 28) — Hapus Edit Manual Penjelasan KAK
+- Fitur edit manual pada kolom `PENJELASAN` preview KAK dihapus sesuai permintaan pengguna; kolom kembali menjadi teks biasa tanpa textarea/resizer.
+- Tombol `Simpan Edit KAK` dan input subjudul manual dihapus dari UI preview KAK.
+- Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan preview KAK tidak lagi memiliki textarea maupun tombol simpan edit, serta 11 cell penjelasan tampil sebagai teks.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
