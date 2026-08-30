@@ -26,6 +26,7 @@
 - Lebar popup diperkecil dari 430px menjadi 300px (sekitar 30%) dan tinggi maksimum diperkecil dari 840px menjadi 756px (sekitar 10%).
 - Composer pesan dipadatkan menjadi satu baris; pengguna dapat melampirkan PDF atau foto, melihat nama lampiran, dan membatalkannya sebelum mengirim.
 - Lampiran chat disimpan nyata melalui object storage, dibatasi PDF/foto dan 15MB, dicatat pada riwayat percakapan, serta dapat dibuka kembali dari bubble pesan.
+- Rekomendasi pertanyaan AI kini dipisahkan dari bubble balasan dan ditampilkan sebagai daftar tombol putih ringkas berbingkai emerald agar teks panjang tetap mudah dibaca.
 
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 7) — Chat Ide Otomatis Terbuka
 - Saat pengguna membuka sub-tab "Buat Ide Kegiatan", popup Chat AI kini langsung tampil otomatis tanpa perlu tombol "Buka Chat AI".
@@ -104,6 +105,7 @@
 - Sesi 8: Playwright smoke test OK untuk login PIC → buka workspace → klik tab Ide → quick reply terkirim otomatis → chat auto-scroll ke bawah; verifikasi scroll panel dengan roda mouse berhasil (`scrollTop` berubah 5068 → 4068 → 5068); minimize dan restore popup chat juga berhasil.
 - Sesi 9: Playwright smoke test OK untuk login PIC → buka workspace → tab Ide menampilkan popup chat dengan styling gelap ala referensi Emmy; render header, bubble pesan, dan composer baru tampil normal.
 - Sesi 10: Build frontend dan `py_compile` backend OK. Playwright login PIC → workspace → Chat Ide berhasil memverifikasi popup putih 300px serta pemilihan PDF. curl berhasil mengunggah lalu menghapus PDF uji; validasi API menolak referensi lampiran chat yang tidak sah (400).
+- Sesi 10 (penyempurnaan): Playwright memverifikasi rekomendasi pertanyaan tampil sebagai daftar tombol ringkas dan dapat dipilih dari popup Chat Ide.
 
 ## Backlog Prioritas
 - P0: Tidak ada blocker aktif pada alur utama saat ini.
