@@ -29,6 +29,10 @@
 - Rekomendasi pertanyaan AI kini dipisahkan dari bubble balasan dan ditampilkan sebagai daftar tombol putih ringkas berbingkai emerald agar teks panjang tetap mudah dibaca.
 - Preview KAK dan Laporan Kegiatan kini menangkap roda mouse/touchpad saat kursor berada di panel, dengan scroll lokal, overscroll tertahan, dan scrollbar tipis yang terlihat.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 16) — Header Dashboard Disederhanakan
+- Menu/header `Daftar Kegiatan` dihapus sesuai permintaan pengguna, sehingga navigasi atas kini hanya menampilkan Dashboard, notifikasi, identitas pengguna, dan Keluar.
+- Verifikasi frontend berhasil: `yarn build` sukses dan smoke test Playwright memastikan teks `Daftar Kegiatan` tidak lagi muncul di header dashboard.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.

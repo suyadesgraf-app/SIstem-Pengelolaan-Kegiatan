@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LayoutDashboard, FolderOpen, LogOut, Bell } from "lucide-react";
-import { toast } from "sonner";
+import { LayoutDashboard, LogOut, Bell } from "lucide-react";
 import api from "@/lib/api";
 
 export default function Header({ user, onLogout }) {
@@ -51,14 +50,6 @@ export default function Header({ user, onLogout }) {
             >
               <LayoutDashboard className="w-4 h-4" />
               <span>Dashboard</span>
-            </button>
-            <button
-              data-testid="nav-daftar-kegiatan"
-              onClick={() => toast.info("Lihat daftar lengkap pada tab Status & Jadwal")}
-              className="hidden md:flex items-center space-x-1.5 hover:text-emerald-700 transition"
-            >
-              <FolderOpen className="w-4 h-4" />
-              <span>Daftar Kegiatan</span>
             </button>
             <div className="relative" ref={notifRef}>
               <button
