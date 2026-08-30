@@ -22,7 +22,9 @@ export default function LaporanTab() {
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [uploaded, setUploaded] = useState({});
+  const [activeLamp, setActiveLamp] = useState(null);
   const kakFileRef = useRef(null);
+  const lampFileRef = useRef(null);
 
   useEffect(() => {
     api.get("/projects").then((r) => {
@@ -31,11 +33,57 @@ export default function LaporanTab() {
     }).catch(() => {});
   }, []);
 
-  const uploadKak = (e) => {
+  useEffect(() => {
+    if (!nomorIndeks) return;
+    api.get(`/files?ref=${encodeURIComponent(nomorIndeks)}`).then((r) => {
+      const up = {};
+      let kak = "";
+      r.data.forEach((f) => {
+        if (f.kind === "kak_ref") kak = f.original_filename;
+        if (f.kind === "lampiran") {
+          const idx = LAMPIRAN.indexOf(f.label);
+          if (idx >= 0) up[idx] = true;
+        }
+      });
+      setUploaded(up);
+      setKakName(kak);
+    }).catch(() => {});
+  }, [nomorIndeks]);
+
+  const uploadFile = async (file, kind, label) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    await api.post(
+      `/files/upload?kind=${kind}&label=${encodeURIComponent(label)}&ref=${encodeURIComponent(nomorIndeks)}`,
+      fd
+    );
+  };
+
+  const uploadKak = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    setKakName(file.name);
-    toast.success("KAK bertandatangan berhasil di-upload sebagai referensi");
+    try {
+      await uploadFile(file, "kak_ref", "KAK TTD");
+      setKakName(file.name);
+      toast.success("KAK bertandatangan berhasil di-upload sebagai referensi");
+    } catch (e2) { toast.error(formatApiError(e2)); }
+  };
+
+  const pickLamp = (i) => {
+    setActiveLamp(i);
+    lampFileRef.current?.click();
+  };
+
+  const onLampFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || activeLamp === null) return;
+    try {
+      await uploadFile(file, "lampiran", LAMPIRAN[activeLamp]);
+      setUploaded({ ...uploaded, [activeLamp]: true });
+      toast.success(`Lampiran "${LAMPIRAN[activeLamp]}" terunggah ke penyimpanan`);
+    } catch (e2) { toast.error(formatApiError(e2)); }
   };
 
   const generate = async () => {
@@ -76,6 +124,7 @@ export default function LaporanTab() {
           <div>
             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Upload KAK Disetujui / Bertandatangan (Referensi Laporan)</label>
             <input ref={kakFileRef} type="file" accept=".pdf,.doc,.docx,image/*" className="hidden" onChange={uploadKak} data-testid="laporan-kak-file" />
+            <input ref={lampFileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" className="hidden" onChange={onLampFile} data-testid="lampiran-file-input" />
             <button onClick={() => kakFileRef.current?.click()} data-testid="laporan-upload-kak" className="w-full text-xs border-2 border-dashed border-gray-300 hover:border-emerald-400 text-gray-600 rounded-xl py-3 flex items-center justify-center space-x-2 transition">
               <Upload className="w-4 h-4" /><span>Pilih File KAK</span>
             </button>
@@ -128,7 +177,7 @@ export default function LaporanTab() {
               <span className="text-xs text-gray-700 font-medium">{i + 1}. {l}</span>
               <button
                 data-testid={`lampiran-upload-${i}`}
-                onClick={() => { setUploaded({ ...uploaded, [i]: true }); toast.success(`Lampiran "${l}" terunggah`); }}
+                onClick={() => pickLamp(i)}
                 className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition ${uploaded[i] ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
               >
                 {uploaded[i] ? "✓ Terunggah" : "Upload"}

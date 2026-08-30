@@ -5,13 +5,15 @@ import os
 import re
 import json
 import uuid
+import base64
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import bcrypt
 import jwt
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+import requests
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
@@ -227,7 +229,16 @@ async def list_realisasi(mine: bool = False, user=Depends(get_current_user)):
 
 @api.post("/realisasi")
 async def add_realisasi(body: RealisasiIn, user=Depends(get_current_user)):
-    doc = {"id": str(uuid.uuid4()), **body.model_dump(),
+    nota_path = None
+    if body.nota_image:
+        try:
+            raw = base64.b64decode(body.nota_image.split(",", 1)[-1])
+            nota_path = put_object(f"{APP_NAME}/nota/{user['id']}/{uuid.uuid4()}.jpg", raw, "image/jpeg")["path"]
+        except Exception as e:
+            logger.error(f"nota upload failed: {e}")
+    doc = {"id": str(uuid.uuid4()), "tanggal": body.tanggal, "merchant": body.merchant,
+           "nominal": body.nominal, "kegiatan": body.kegiatan,
+           "nota_image": None, "nota_path": nota_path,
            "uploader": user["name"], "user_id": user["id"],
            "created_at": datetime.now(timezone.utc).isoformat()}
     await db.realisasi.insert_one(doc)
@@ -251,10 +262,58 @@ async def delete_realisasi(rid: str, user=Depends(get_current_user)):
 
 @api.get("/realisasi/{rid}/nota")
 async def get_nota(rid: str, user=Depends(get_current_user)):
-    doc = await db.realisasi.find_one({"id": rid}, {"_id": 0, "nota_image": 1})
-    if not doc or not doc.get("nota_image"):
+    doc = await db.realisasi.find_one({"id": rid}, {"_id": 0, "nota_image": 1, "nota_path": 1})
+    if not doc:
         raise HTTPException(404, "Nota tidak tersedia")
-    return {"image": doc["nota_image"]}
+    if doc.get("nota_path"):
+        try:
+            data, ct = get_object(doc["nota_path"])
+            return {"image": f"data:{ct};base64," + base64.b64encode(data).decode()}
+        except Exception as e:
+            logger.error(f"nota download failed: {e}")
+            raise HTTPException(404, "File nota tidak ditemukan di penyimpanan")
+    if doc.get("nota_image"):
+        return {"image": doc["nota_image"]}
+    raise HTTPException(404, "Nota tidak tersedia")
+
+
+# ---------- File & Media Storage (lampiran, referensi KAK) ----------
+
+@api.post("/files/upload")
+async def upload_file(file: UploadFile = File(...), kind: str = "lampiran", label: str = "",
+                      ref: str = "", user=Depends(get_current_user)):
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
+    ct = file.content_type or "application/octet-stream"
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(413, "Ukuran file maksimal 15MB")
+    path = f"{APP_NAME}/uploads/{user['id']}/{uuid.uuid4()}.{ext}"
+    result = put_object(path, data, ct)
+    doc = {"id": str(uuid.uuid4()), "storage_path": result["path"], "original_filename": file.filename,
+           "content_type": ct, "size": result.get("size", len(data)), "kind": kind, "label": label,
+           "ref": ref, "user_id": user["id"], "is_deleted": False,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.files.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api.get("/files")
+async def list_files(ref: str = "", user=Depends(get_current_user)):
+    query = {"is_deleted": False}
+    if ref:
+        query["ref"] = ref
+    return await db.files.find(query, {"_id": 0}).to_list(200)
+
+
+@api.get("/files/{fid}/download")
+async def download_file(fid: str, user=Depends(get_current_user)):
+    record = await db.files.find_one({"id": fid, "is_deleted": False})
+    if not record:
+        raise HTTPException(404, "File tidak ditemukan")
+    data, ct = get_object(record["storage_path"])
+    return Response(content=data, media_type=record.get("content_type", ct),
+                    headers={"Content-Disposition": f'inline; filename="{record["original_filename"]}"'})
 
 
 # ---------- AI (LLM) ----------
@@ -367,6 +426,43 @@ async def generate_report(body: ReportIn, user=Depends(get_current_user)):
         raise HTTPException(500, "AI gagal menyusun laporan, coba lagi")
 
 
+# ---------- Object Storage ----------
+
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+APP_NAME = "baznas-dki"
+storage_key = None
+
+
+def init_storage(force: bool = False):
+    global storage_key
+    if storage_key and not force:
+        return storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": LLM_KEY}, timeout=30)
+    resp.raise_for_status()
+    storage_key = resp.json()["storage_key"]
+    return storage_key
+
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(f"{STORAGE_URL}/objects/{path}",
+                        headers={"X-Storage-Key": key, "Content-Type": content_type},
+                        data=data, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_object(path: str):
+    key = init_storage()
+    resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 404:
+        init_storage(force=True)
+        resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": storage_key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+
 # ---------- Seed ----------
 
 SEED_USERS = [
@@ -402,6 +498,11 @@ SEED_RAB = [
 async def seed():
     await db.users.create_index("email", unique=True)
     await db.login_attempts.create_index("identifier")
+    try:
+        init_storage()
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.error(f"Storage init failed: {e}")
     for u in SEED_USERS:
         existing = await db.users.find_one({"email": u["email"]})
         if not existing:

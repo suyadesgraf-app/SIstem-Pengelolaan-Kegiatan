@@ -22,13 +22,14 @@
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
 
 ## Yang Sudah Diimplementasikan (29 Agustus 2026)
+- File & media storage (Emergent Object Storage): foto nota relawan tersimpan ke cloud storage (bukan base64 di MongoDB), diambil kembali lewat backend; unggahan lampiran laporan (6 jenis) dan referensi KAK TTD kini NYATA tersimpan dengan metadata di MongoDB (soft-delete, is_deleted), bisa di-download ulang via /api/files/{id}/download; status lampiran persisten per nomor indeks
 - Integrasi model Gemini berdampingan dengan OpenAI: pemilih model (ModelPicker) di semua fitur AI. Gemini 3.1 Pro Preview untuk KAK/Laporan, Gemini 3.7 Flash untuk OCR nota; OpenAI gpt-5.4 / gpt-5.4-mini tetap tersedia. Backend /ai/kak, /ai/report, /ai/ocr menerima param `provider` (openai|gemini) dengan validasi 400 untuk provider tak dikenal
 - Login 3 peran + seed users + proteksi brute force (lockout 15 menit setelah 5x gagal)
 - Dashboard: stat widgets (Plafon, Realisasi, SLA, Total Kegiatan), daftar kegiatan + filter, grafik Bar & Doughnut
 - RAB: form input + kategori manual, tabel grup kategori, inline edit, hapus, total otomatis
 - AI Perencanaan: generate KAK 12 bagian dari poin mentah, preview dokumen A4 serif, tabel TTD, cetak (print CSS)
 - Realisasi: phone-frame OCR (upload foto → AI ekstrak → edit → simpan), tabel rekap CRUD, lihat nota
-- AI Laporan: nomor indeks, upload referensi KAK, generate LPJ (BAB I-IV), lampiran (MOCKED upload state), submit ke verifikator
+- AI Laporan: nomor indeks, upload referensi KAK (tersimpan nyata), generate LPJ (BAB I-IV), lampiran upload nyata ke cloud storage, submit ke verifikator
 - Persetujuan: antrean approval, tombol Sahkan (status → Diverifikasi)
 - Aplikasi Relawan (/relawan): mobile-native look, stat personal, scan nota OCR, riwayat, bottom nav
 
@@ -38,6 +39,6 @@
 - Belum diverifikasi di browser: upload foto nota langsung di UI (endpoint OCR sudah terbukti via curl), export PDF/Excel (mock toast)
 
 ## Backlog Prioritas
-- P0: Aplikasi mobile native (Expo/React Native) di atas API yang ada; upload lampiran asli (object storage); ekspor RAB/KAK PDF-Excel nyata
+- P0: Aplikasi mobile native (Expo/React Native) di atas API yang ada; ekspor RAB/KAK PDF-Excel nyata
 - P1: Notifikasi SLA otomatis, manajemen pengguna oleh admin, edit profil, filter/cari realisasi
 - P2: Offline queue PWA untuk blank spot, tanda tangan digital, multi-kegiatan per RAB
