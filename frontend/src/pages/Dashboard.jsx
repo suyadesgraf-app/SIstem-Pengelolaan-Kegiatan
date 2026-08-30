@@ -4,20 +4,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import Header from "@/components/Header";
 import SidebarProfile from "@/components/SidebarProfile";
 import DashboardTab from "@/components/tabs/DashboardTab";
-import RabTab from "@/components/tabs/RabTab";
-import KakTab from "@/components/tabs/KakTab";
-import RealisasiTab from "@/components/tabs/RealisasiTab";
-import LaporanTab from "@/components/tabs/LaporanTab";
 import PersetujuanTab from "@/components/tabs/PersetujuanTab";
+import AkunTab from "@/components/tabs/AkunTab";
 import { useAuth } from "@/context/AuthContext";
 
 const TABS = [
   { id: "dashboard", label: "Status & Jadwal" },
-  { id: "planning", label: "Anggaran Kegiatan" },
-  { id: "aiperencanaan", label: "AI Perencanaan" },
-  { id: "realisasi", label: "Realisasi Anggaran" },
-  { id: "laporan", label: "AI Laporan" },
   { id: "persetujuan", label: "Persetujuan" },
+  { id: "akun", label: "Kelola Akun" },
 ];
 
 export default function Dashboard() {
@@ -64,11 +58,8 @@ export default function Dashboard() {
                 transition={{ duration: 0.25, ease: "easeOut" }}
               >
                 {tab === "dashboard" && <DashboardTab />}
-                {tab === "planning" && <RabTab />}
-                {tab === "aiperencanaan" && <KakTab />}
-                {tab === "realisasi" && <RealisasiTab />}
-                {tab === "laporan" && <LaporanTab />}
                 {tab === "persetujuan" && <PersetujuanTab />}
+                {tab === "akun" && <AkunTab />}
               </motion.div>
             </AnimatePresence>
           </section>

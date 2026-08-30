@@ -19,7 +19,7 @@ export default function RelawanApp() {
   const [image, setImage] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [provider, setProvider] = useState("gemini");
-  const [form, setForm] = useState({ merchant: "", nominal: "", tanggal: "", kegiatan: "" });
+  const [form, setForm] = useState({ merchant: "", nominal: "", tanggal: "", kegiatan: "", projectId: "" });
   const fileRef = useRef(null);
 
   const load = () => {
@@ -64,11 +64,12 @@ export default function RelawanApp() {
         merchant: form.merchant.trim(),
         nominal: parseInt(String(form.nominal).replace(/[^0-9]/g, "")) || 0,
         kegiatan: form.kegiatan || projects[0]?.name || "Umum",
+        project_id: form.projectId || null,
         nota_image: image,
       });
       toast.success("Laporan nota tersimpan & tersinkron");
       setImage(null);
-      setForm({ merchant: "", nominal: "", tanggal: "", kegiatan: "" });
+      setForm({ merchant: "", nominal: "", tanggal: "", kegiatan: "", projectId: "" });
       load();
       setView("riwayat");
     } catch (e2) { toast.error(formatApiError(e2)); }
@@ -116,6 +117,31 @@ export default function RelawanApp() {
                   <p className="text-emerald-100/80 text-xs mt-1">Foto nota, AI membaca isinya otomatis, laporan langsung tersinkron.</p>
                 </button>
                 <div>
+                  <p className="font-heading font-bold text-sm text-gray-800 mb-3">Kegiatan untuk Anda</p>
+                  <div className="space-y-2.5" data-testid="relawan-project-list">
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        data-testid={`relawan-project-${p.id}`}
+                        onClick={() => { setForm({ ...form, projectId: p.id, kegiatan: p.name }); setView("scan"); }}
+                        className="w-full bg-white rounded-2xl border border-gray-200 p-3.5 flex items-center justify-between text-left hover:border-emerald-400 active:scale-[0.98] transition"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center font-heading font-extrabold text-xs" style={{ backgroundColor: p.tint?.bg, color: p.tint?.fg }}>
+                            {p.tint?.ini || p.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-gray-800">{p.name}</p>
+                            <p className="text-[10px] text-gray-400">{p.loc} • {p.date}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full whitespace-nowrap">Input Nota</span>
+                      </button>
+                    ))}
+                    {projects.length === 0 && <p className="text-xs text-gray-400 text-center py-4" data-testid="relawan-project-empty">Belum ada kegiatan dari PIC Anda.</p>}
+                  </div>
+                </div>
+                <div>
                   <p className="font-heading font-bold text-sm text-gray-800 mb-3">Terakhir Dilaporkan</p>
                   <div className="space-y-2.5">
                     {items.slice(0, 3).map((it) => (
@@ -138,7 +164,10 @@ export default function RelawanApp() {
 
             {view === "scan" && (
               <motion.div key="scan" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-                <p className="font-heading font-bold text-sm text-gray-800">Scan Nota Keuangan</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-heading font-bold text-sm text-gray-800">Scan Nota Keuangan</p>
+                  {form.kegiatan && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full truncate" data-testid="relawan-scan-kegiatan-chip">{form.kegiatan}</span>}
+                </div>
                 <div className="relative rounded-3xl overflow-hidden bg-gray-900 h-72 border-2 border-dashed border-emerald-400/60" data-testid="relawan-viewfinder">
                   {image ? (
                     <img src={image} alt="Nota" className="w-full h-full object-cover" />
@@ -187,9 +216,9 @@ export default function RelawanApp() {
                       </div>
                       <div>
                         <label className="text-[10px] font-bold text-gray-400 uppercase">Kegiatan</label>
-                        <select data-testid="relawan-kegiatan-select" value={form.kegiatan} onChange={(e) => setForm({ ...form, kegiatan: e.target.value })} className="w-full text-xs border border-gray-200 rounded-xl p-2.5 bg-gray-50 outline-none">
+                        <select data-testid="relawan-kegiatan-select" value={form.projectId} onChange={(e) => { const p = projects.find((x) => x.id === e.target.value); setForm({ ...form, projectId: e.target.value, kegiatan: p?.name || "" }); }} className="w-full text-xs border border-gray-200 rounded-xl p-2.5 bg-gray-50 outline-none">
                           <option value="">Pilih kegiatan...</option>
-                          {projects.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                       </div>
                       <button onClick={save} data-testid="relawan-save-button" className="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold py-3 rounded-2xl transition active:scale-95">

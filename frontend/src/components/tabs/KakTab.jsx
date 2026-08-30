@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Printer, Sparkles } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
@@ -11,18 +11,28 @@ const SIGNERS = [
   { label: "Disetujui oleh;", name: "Muhamad Bahaudin", role: "Pimpinan Bidang II" },
 ];
 
-export default function KakTab() {
+export default function KakTab({ project = null }) {
   const [raw, setRaw] = useState("");
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState("gemini");
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    if (!project?.id) return;
+    api.get(`/projects/${project.id}/kaks`).then((r) => {
+      setHistory(r.data);
+      if (r.data[0]) setDoc({ title: r.data[0].title, sections: r.data[0].sections });
+    }).catch(() => {});
+  }, [project?.id]);
 
   const generate = async () => {
     if (!raw.trim()) return toast.warning("Masukkan poin mentah kegiatan terlebih dahulu");
     setLoading(true);
     try {
-      const r = await api.post("/ai/kak", { raw_text: raw, provider });
+      const r = await api.post("/ai/kak", { raw_text: raw, provider, project_id: project?.id });
       setDoc(r.data);
+      if (project?.id) api.get(`/projects/${project.id}/kaks`).then((res) => setHistory(res.data)).catch(() => {});
       toast.success(`KAK berhasil dibuat AI (${provider === "gemini" ? "Gemini 3.1 Pro" : "GPT-5.4"})!`);
     } catch (e) {
       toast.error(formatApiError(e));
@@ -52,6 +62,21 @@ export default function KakTab() {
           <Sparkles className="w-4 h-4" />
           <span>{loading ? "AI sedang menyusun dokumen..." : "Generate KAK dengan AI"}</span>
         </button>
+        {history.length > 0 && (
+          <div className="flex flex-wrap gap-2 items-center" data-testid="kak-history">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Riwayat:</span>
+            {history.map((h, i) => (
+              <button
+                key={h.id}
+                data-testid={`kak-history-${i}`}
+                onClick={() => setDoc({ title: h.title, sections: h.sections })}
+                className="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 hover:bg-emerald-50 text-gray-600 transition"
+              >
+                v{history.length - i} • {new Date(h.created_at).toLocaleDateString("id-ID")} • {h.provider === "gemini" ? "Gemini" : "OpenAI"}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex justify-between items-center pt-4 border-t border-gray-100 flex-wrap gap-2">
           <span className="text-xs font-bold text-gray-500">Ekspor & Cetak:</span>
           <div className="flex space-x-2 flex-wrap gap-y-2">

@@ -21,6 +21,16 @@
 - AI: emergentintegrations LlmChat (stream_message), EMERGENT_LLM_KEY di backend/.env
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026) — Alur Hierarki & Workspace Kegiatan
+- Alur lengkap sesuai permintaan: PIC input Kegiatan (tombol "Tambah Kegiatan" di dashboard) → kartu kegiatan bisa diklik membuka Workspace (/kegiatan/:id) berisi 4 sub-tab: KAK, RAB, Laporan Keuangan, Laporan Kegiatan — semua riwayat perencanaan tersimpan per kegiatan
+- Hierarki akun: Super Admin membuat akun PIC, PIC membuat akun Relawan (tab "Kelola Akun"); relawan tidak bisa membuat akun (403); email duplikat ditolak (409)
+- Scope data: setiap PIC hanya melihat kegiatan, RAB, dan statistik miliknya; relawan hanya melihat kegiatan dari PIC-nya; PIC baru bisa dibuat banyak dan terisolasi satu sama lain
+- RelawanApp: beranda menampilkan "Kegiatan untuk Anda" — klik kegiatan langsung masuk mode scan dengan kegiatan terpilih (chip), nota tersimpan dengan project_id
+- Laporan keuangan relawan per kegiatan muncul di sub-tab "Laporan Keuangan" milik PIC (edit/hapus/lihat nota + total realisasi)
+- KAK & Laporan Kegiatan AI tersimpan per kegiatan (kaks, reports collection) dengan riwayat versi + provider yang dipakai; Laporan Kegiatan terkunci ke nomor indeks kegiatan
+- Nomor indeks otomatis (00-26XXXXXX), status kegiatan baru: "Perencanaan" → submit laporan → "Menunggu" → disahkan → "Diverifikasi"
+- Migrasi data lama: proyek seed di-assign ke PIC demo (pic@baznas.id), relawan demo di-link ke PIC tersebut, RAB & realisasi lama di-link ke kegiatan terkait
+
 ## Yang Sudah Diimplementasikan (29 Agustus 2026)
 - File & media storage (Emergent Object Storage): foto nota relawan tersimpan ke cloud storage (bukan base64 di MongoDB), diambil kembali lewat backend; unggahan lampiran laporan (6 jenis) dan referensi KAK TTD kini NYATA tersimpan dengan metadata di MongoDB (soft-delete, is_deleted), bisa di-download ulang via /api/files/{id}/download; status lampiran persisten per nomor indeks
 - Integrasi model Gemini berdampingan dengan OpenAI: pemilih model (ModelPicker) di semua fitur AI. Gemini 3.1 Pro Preview untuk KAK/Laporan, Gemini 3.7 Flash untuk OCR nota; OpenAI gpt-5.4 / gpt-5.4-mini tetap tersedia. Backend /ai/kak, /ai/report, /ai/ocr menerima param `provider` (openai|gemini) dengan validasi 400 untuk provider tak dikenal

@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import { Plus } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
   PieChart, Pie, Cell,
 } from "recharts";
-import api from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 const STATUS_STYLE = {
   Selesai: "bg-emerald-100 text-emerald-800",
   Menunggu: "bg-amber-100 text-amber-800",
   Diverifikasi: "bg-blue-100 text-blue-800",
+  Perencanaan: "bg-sky-100 text-sky-800",
 };
 const SLA_COLORS = ["#10b981", "#fbbf24", "#ef4444"];
 
@@ -19,14 +24,41 @@ const fmtMiliar = (v) =>
     : `Rp ${v} Jt`;
 
 export default function DashboardTab() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [projects, setProjects] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newK, setNewK] = useState({ name: "", loc: "", date: "", plafon: "" });
+  const canCreate = user.role === "pic" || user.role === "superadmin";
+
+  const loadProjects = () => api.get("/projects").then((r) => setProjects(r.data)).catch(() => {});
 
   useEffect(() => {
     api.get("/dashboard/stats").then((r) => setStats(r.data)).catch(() => {});
-    api.get("/projects").then((r) => setProjects(r.data)).catch(() => {});
+    loadProjects();
   }, []);
+
+  const createKegiatan = async () => {
+    if (!newK.name.trim()) return toast.warning("Nama kegiatan wajib diisi");
+    setCreating(true);
+    try {
+      const r = await api.post("/projects", {
+        name: newK.name.trim(), loc: newK.loc.trim(), date: newK.date.trim(),
+        plafon: parseInt(newK.plafon) || 0,
+      });
+      toast.success(`Kegiatan "${r.data.name}" dibuat (${r.data.nomor_indeks})`);
+      setShowCreate(false);
+      setNewK({ name: "", loc: "", date: "", plafon: "" });
+      navigate(`/kegiatan/${r.data.id}`);
+    } catch (e) {
+      toast.error(formatApiError(e));
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const filtered = filter === "warning"
     ? projects.filter((p) => p.status === "Menunggu" || p.slaDays > 0)
@@ -71,9 +103,18 @@ export default function DashboardTab() {
         </motion.div>
       </div>
 
-      <div className="flex justify-between items-center mb-2 mt-4">
+      <div className="flex justify-between items-center mb-2 mt-4 flex-wrap gap-2">
         <h2 className="font-heading text-lg font-bold text-gray-800">Status & Jadwal Pendaftaran Kegiatan</h2>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center">
+          {canCreate && (
+            <button
+              data-testid="kegiatan-add-button"
+              onClick={() => setShowCreate(!showCreate)}
+              className="text-xs px-3 py-1.5 rounded-full font-bold bg-emerald-700 text-white hover:bg-emerald-800 active:scale-95 transition flex items-center space-x-1"
+            >
+              <Plus className="w-3.5 h-3.5" /><span>Tambah Kegiatan</span>
+            </button>
+          )}
           <button
             data-testid="filter-semua"
             onClick={() => setFilter("all")}
@@ -91,6 +132,25 @@ export default function DashboardTab() {
         </div>
       </div>
 
+      <AnimatePresence>
+        {showCreate && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3 mb-4" data-testid="kegiatan-create-form">
+              <p className="font-heading font-bold text-sm text-gray-800">Kegiatan Baru</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input data-testid="kegiatan-name-input" value={newK.name} onChange={(e) => setNewK({ ...newK, name: e.target.value })} placeholder="Nama kegiatan (mis: Layanan Kesehatan NTT)" className="text-xs border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-emerald-500" />
+                <input data-testid="kegiatan-loc-input" value={newK.loc} onChange={(e) => setNewK({ ...newK, loc: e.target.value })} placeholder="Lokasi" className="text-xs border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-emerald-500" />
+                <input data-testid="kegiatan-date-input" value={newK.date} onChange={(e) => setNewK({ ...newK, date: e.target.value })} placeholder="Tanggal (mis: 5 September 2026)" className="text-xs border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-emerald-500" />
+                <input data-testid="kegiatan-plafon-input" type="number" value={newK.plafon} onChange={(e) => setNewK({ ...newK, plafon: e.target.value })} placeholder="Plafon anggaran (Rp juta)" className="text-xs border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+              <button data-testid="kegiatan-create-submit" onClick={createKegiatan} disabled={creating} className="bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition disabled:opacity-60">
+                {creating ? "Menyimpan..." : "Simpan & Buka Perencanaan"}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="space-y-4" data-testid="project-list">
         {filtered.map((p, i) => (
           <motion.div
@@ -98,7 +158,8 @@ export default function DashboardTab() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.06, duration: 0.4 }}
-            className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition hover:border-emerald-300 cursor-pointer"
+            className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition hover:border-emerald-300 hover:shadow-md cursor-pointer"
+            onClick={() => navigate(`/kegiatan/${p.id}`)}
             data-testid={`project-card-${p.nomor_indeks}`}
           >
             <div className="flex items-center space-x-4">

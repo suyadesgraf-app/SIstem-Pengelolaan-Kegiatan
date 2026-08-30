@@ -13,9 +13,8 @@ const LAMPIRAN = [
   "Lampiran Lainnya (Opsional)",
 ];
 
-export default function LaporanTab() {
-  const [projects, setProjects] = useState([]);
-  const [nomorIndeks, setNomorIndeks] = useState("");
+export default function LaporanTab({ project = null }) {
+  const nomorIndeks = project?.nomor_indeks || "";
   const [kakName, setKakName] = useState("");
   const [points, setPoints] = useState("");
   const [doc, setDoc] = useState(null);
@@ -27,11 +26,11 @@ export default function LaporanTab() {
   const lampFileRef = useRef(null);
 
   useEffect(() => {
-    api.get("/projects").then((r) => {
-      setProjects(r.data);
-      if (r.data[0]) setNomorIndeks(r.data[0].nomor_indeks);
+    if (!project?.id) return;
+    api.get(`/projects/${project.id}/reports`).then((r) => {
+      if (r.data[0]) setDoc({ title: r.data[0].title, sections: r.data[0].sections });
     }).catch(() => {});
-  }, []);
+  }, [project?.id]);
 
   useEffect(() => {
     if (!nomorIndeks) return;
@@ -90,7 +89,7 @@ export default function LaporanTab() {
     if (!points.trim()) return toast.warning("Masukkan poin mentah lapangan terlebih dahulu");
     setLoading(true);
     try {
-      const r = await api.post("/ai/report", { nomor_indeks: nomorIndeks, points, kak_name: kakName, provider });
+      const r = await api.post("/ai/report", { nomor_indeks: nomorIndeks, points, kak_name: kakName, provider, project_id: project?.id });
       setDoc(r.data);
       toast.success(`Laporan AI berhasil dibuat (${provider === "gemini" ? "Gemini 3.1 Pro" : "GPT-5.4"})!`);
     } catch (e2) {
@@ -117,9 +116,9 @@ export default function LaporanTab() {
           <p className="text-sm text-gray-500">Masukkan poin mentah lapangan, AI akan merangkai dokumen Laporan Akhir sesuai format baku BAZNAS.</p>
           <div>
             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nomor Indeks</label>
-            <select data-testid="laporan-nomor-indeks" value={nomorIndeks} onChange={(e) => setNomorIndeks(e.target.value)} className="w-full text-xs border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-emerald-500">
-              {projects.map((p) => <option key={p.id} value={p.nomor_indeks}>{p.nomor_indeks} — {p.name}</option>)}
-            </select>
+            <div data-testid="laporan-nomor-indeks" className="w-full text-xs border border-gray-200 rounded-lg p-2.5 bg-gray-50 font-semibold text-gray-700">
+              {nomorIndeks}{project?.name ? ` — ${project.name}` : ""}
+            </div>
           </div>
           <div>
             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Upload KAK Disetujui / Bertandatangan (Referensi Laporan)</label>

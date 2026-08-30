@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import RelawanApp from "@/pages/RelawanApp";
+import KegiatanWorkspace from "@/pages/KegiatanWorkspace";
 
 function useLenis() {
   useEffect(() => {
@@ -41,6 +42,14 @@ function RelawanGate() {
   return <RelawanApp />;
 }
 
+function KegiatanGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <Splash />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === "relawan") return <Navigate to="/relawan" replace />;
+  return <KegiatanWorkspace />;
+}
+
 export default function App() {
   useLenis();
   return (
@@ -50,6 +59,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<HomeGate />} />
           <Route path="/relawan" element={<RelawanGate />} />
+          <Route path="/kegiatan/:id" element={<KegiatanGate />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

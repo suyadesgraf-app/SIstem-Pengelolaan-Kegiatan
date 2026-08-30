@@ -7,14 +7,14 @@ const KATEGORI_OPSI = ["Branding", "Perlengkapan", "Konsumsi"];
 const empty = { kategori: "Branding", kategoriManual: "", uraian: "", qty: "", satuanQty: "", frek: "", satuanFrek: "", harga: "" };
 const rp = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
 
-export default function RabTab() {
+export default function RabTab({ projectId = "" }) {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});
 
-  const load = () => api.get("/rab").then((r) => setItems(r.data)).catch(() => {});
-  useEffect(() => { load(); }, []);
+  const load = () => api.get(`/rab?project_id=${projectId}`).then((r) => setItems(r.data)).catch(() => {});
+  useEffect(() => { load(); }, [projectId]);
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -38,7 +38,7 @@ export default function RabTab() {
       await api.post("/rab/items", {
         kategori, uraian: form.uraian.trim(), qty,
         satuanQty: form.satuanQty || "Pcs", frek: parseInt(form.frek) || 1,
-        satuanFrek: form.satuanFrek || "Kali", harga,
+        satuanFrek: form.satuanFrek || "Kali", harga, project_id: projectId,
       });
       setForm(empty);
       load();

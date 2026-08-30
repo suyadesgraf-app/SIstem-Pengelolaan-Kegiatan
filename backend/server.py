@@ -117,6 +117,45 @@ async def me(user=Depends(get_current_user)):
     return user
 
 
+# ---------- User Management (Super Admin -> PIC -> Relawan) ----------
+
+class UserIn(BaseModel):
+    name: str
+    email: str
+    password: str
+
+
+@api.post("/users")
+async def create_user(body: UserIn, user=Depends(get_current_user)):
+    if user["role"] == "superadmin":
+        role, pic_id = "pic", None
+    elif user["role"] == "pic":
+        role, pic_id = "relawan", user["id"]
+    else:
+        raise HTTPException(403, "Relawan tidak dapat membuat akun")
+    email = body.email.lower().strip()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(409, "Email sudah terdaftar")
+    if len(body.password) < 6:
+        raise HTTPException(400, "Kata sandi minimal 6 karakter")
+    doc = {"id": str(uuid.uuid4()), "email": email, "name": body.name, "role": role,
+           "pic_id": pic_id, "password_hash": hash_password(body.password),
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.users.insert_one(doc)
+    return {k: v for k, v in doc.items() if k not in ("_id", "password_hash")}
+
+
+@api.get("/users")
+async def list_users(user=Depends(get_current_user)):
+    if user["role"] == "superadmin":
+        query = {"role": {"$in": ["pic", "relawan"]}}
+    elif user["role"] == "pic":
+        query = {"pic_id": user["id"]}
+    else:
+        raise HTTPException(403, "Tidak diizinkan")
+    return await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(500)
+
+
 # ---------- Projects & Dashboard ----------
 
 @api.get("/")
@@ -124,14 +163,58 @@ async def root():
     return {"message": "Sistem Integrasi Pengelolaan Kegiatan BAZNAS DKI"}
 
 
+TINTS = [
+    {"bg": "#fde68a", "fg": "#b45309"},
+    {"bg": "#dcfce7", "fg": "#047857"},
+    {"bg": "#bae6fd", "fg": "#0369a1"},
+    {"bg": "#f3e8ff", "fg": "#7e22ce"},
+    {"bg": "#fee2e2", "fg": "#b91c1c"},
+]
+
+
 @api.get("/projects")
 async def list_projects(user=Depends(get_current_user)):
-    return await db.projects.find({}, {"_id": 0}).to_list(200)
+    if user["role"] == "pic":
+        query = {"created_by": user["id"]}
+    elif user["role"] == "relawan":
+        query = {"created_by": user.get("pic_id") or "__none__"}
+    else:
+        query = {}
+    return await db.projects.find(query, {"_id": 0}).to_list(200)
+
+
+class ProjectIn(BaseModel):
+    name: str
+    loc: str = ""
+    date: str = ""
+    plafon: int = 0
+
+
+@api.post("/projects")
+async def create_project(body: ProjectIn, user=Depends(get_current_user)):
+    if user["role"] == "relawan":
+        raise HTTPException(403, "Relawan tidak dapat membuat kegiatan")
+    count = await db.projects.count_documents({})
+    tint = TINTS[count % len(TINTS)]
+    doc = {"id": str(uuid.uuid4()), "nomor_indeks": f"00-26{count + 1:06d}",
+           "name": body.name, "loc": body.loc, "date": body.date,
+           "plafon": body.plafon, "realisasi": 0, "slaDays": 0, "status": "Perencanaan",
+           "tint": {**tint, "ini": body.name[:2].upper()}, "created_by": user["id"],
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.projects.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
 
 
 @api.get("/dashboard/stats")
 async def dashboard_stats(user=Depends(get_current_user)):
-    projects = await db.projects.find({}, {"_id": 0}).to_list(200)
+    if user["role"] == "pic":
+        query = {"created_by": user["id"]}
+    elif user["role"] == "relawan":
+        query = {"created_by": user.get("pic_id") or "__none__"}
+    else:
+        query = {}
+    projects = await db.projects.find(query, {"_id": 0}).to_list(200)
     total = len(projects) or 1
     tepat = sum(1 for p in projects if p.get("slaDays", 0) == 0)
     mendekati = sum(1 for p in projects if 0 < p.get("slaDays", 0) <= 2)
@@ -181,11 +264,13 @@ class RabItemIn(BaseModel):
     frek: int = 1
     satuanFrek: str = "Kali"
     harga: int = 0
+    project_id: Optional[str] = None
 
 
 @api.get("/rab")
-async def list_rab(user=Depends(get_current_user)):
-    return await db.rab_items.find({}, {"_id": 0}).to_list(1000)
+async def list_rab(project_id: str = "", user=Depends(get_current_user)):
+    query = {"project_id": project_id} if project_id else {}
+    return await db.rab_items.find(query, {"_id": 0}).to_list(1000)
 
 
 @api.post("/rab/items")
@@ -218,12 +303,17 @@ class RealisasiIn(BaseModel):
     merchant: str
     nominal: int
     kegiatan: str
+    project_id: Optional[str] = None
     nota_image: Optional[str] = None
 
 
 @api.get("/realisasi")
-async def list_realisasi(mine: bool = False, user=Depends(get_current_user)):
-    query = {"user_id": user["id"]} if mine else {}
+async def list_realisasi(mine: bool = False, project_id: str = "", user=Depends(get_current_user)):
+    query = {}
+    if mine or user["role"] == "relawan":
+        query["user_id"] = user["id"]
+    if project_id:
+        query["project_id"] = project_id
     return await db.realisasi.find(query, {"_id": 0, "nota_image": 0}).sort("created_at", -1).to_list(1000)
 
 
@@ -237,7 +327,7 @@ async def add_realisasi(body: RealisasiIn, user=Depends(get_current_user)):
         except Exception as e:
             logger.error(f"nota upload failed: {e}")
     doc = {"id": str(uuid.uuid4()), "tanggal": body.tanggal, "merchant": body.merchant,
-           "nominal": body.nominal, "kegiatan": body.kegiatan,
+           "nominal": body.nominal, "kegiatan": body.kegiatan, "project_id": body.project_id,
            "nota_image": None, "nota_path": nota_path,
            "uploader": user["name"], "user_id": user["id"],
            "created_at": datetime.now(timezone.utc).isoformat()}
@@ -384,6 +474,7 @@ KAK_SECTIONS = ["1. Pendahuluan", "2. Deskripsi Program", "3. Landasan Hukum", "
 class KakIn(BaseModel):
     raw_text: str
     provider: str = "openai"
+    project_id: Optional[str] = None
 
 
 @api.post("/ai/kak")
@@ -395,7 +486,13 @@ async def generate_kak(body: KakIn, user=Depends(get_current_user)):
               + "; ".join(KAK_SECTIONS) + ". Landasan hukum merujuk UU No. 23 Tahun 2011 tentang Pengelolaan Zakat.")
     try:
         raw = await llm_complete(system, f"Poin mentah kegiatan:\n{body.raw_text}", provider=prov, model=model)
-        return parse_llm_json(raw)
+        data = parse_llm_json(raw)
+        if body.project_id:
+            await db.kaks.insert_one({"id": str(uuid.uuid4()), "project_id": body.project_id,
+                                      "title": data.get("title", ""), "sections": data.get("sections", []),
+                                      "provider": prov, "created_by": user["id"],
+                                      "created_at": datetime.now(timezone.utc).isoformat()})
+        return data
     except Exception as e:
         logger.error(f"KAK error: {e}")
         raise HTTPException(500, "AI gagal menyusun KAK, coba lagi")
@@ -406,6 +503,7 @@ class ReportIn(BaseModel):
     points: str
     kak_name: Optional[str] = None
     provider: str = "openai"
+    project_id: Optional[str] = None
 
 
 @api.post("/ai/report")
@@ -420,10 +518,27 @@ async def generate_report(body: ReportIn, user=Depends(get_current_user)):
             system,
             f"Nomor indeks: {body.nomor_indeks}\nReferensi KAK: {body.kak_name or '-'}\nPoin lapangan:\n{body.points}",
             provider=prov, model=model)
-        return parse_llm_json(raw)
+        data = parse_llm_json(raw)
+        if body.project_id:
+            await db.reports.insert_one({"id": str(uuid.uuid4()), "project_id": body.project_id,
+                                         "nomor_indeks": body.nomor_indeks, "kak_name": body.kak_name,
+                                         "title": data.get("title", ""), "sections": data.get("sections", []),
+                                         "provider": prov, "created_by": user["id"],
+                                         "created_at": datetime.now(timezone.utc).isoformat()})
+        return data
     except Exception as e:
         logger.error(f"Report error: {e}")
         raise HTTPException(500, "AI gagal menyusun laporan, coba lagi")
+
+
+@api.get("/projects/{pid}/kaks")
+async def list_kaks(pid: str, user=Depends(get_current_user)):
+    return await db.kaks.find({"project_id": pid}, {"_id": 0}).sort("created_at", -1).to_list(50)
+
+
+@api.get("/projects/{pid}/reports")
+async def list_reports(pid: str, user=Depends(get_current_user)):
+    return await db.reports.find({"project_id": pid}, {"_id": 0}).sort("created_at", -1).to_list(50)
 
 
 # ---------- Object Storage ----------
@@ -521,6 +636,19 @@ async def seed():
             "nominal": 1250000, "kegiatan": "Pelatihan Wirausaha", "uploader": admin["name"],
             "user_id": admin["id"], "nota_image": None,
             "created_at": datetime.now(timezone.utc).isoformat()})
+    pic = await db.users.find_one({"email": "pic@baznas.id"})
+    if pic:
+        await db.projects.update_many({"created_by": {"$exists": False}}, {"$set": {"created_by": pic["id"]}})
+        rel = await db.users.find_one({"email": "relawan@baznas.id"})
+        if rel and not rel.get("pic_id"):
+            await db.users.update_one({"id": rel["id"]}, {"$set": {"pic_id": pic["id"]}})
+        p1 = await db.projects.find_one({"nomor_indeks": "00-26000001"})
+        if p1:
+            await db.rab_items.update_many({"project_id": {"$exists": False}}, {"$set": {"project_id": p1["id"]}})
+        async for r in db.realisasi.find({"project_id": {"$exists": False}}):
+            p = await db.projects.find_one({"name": r.get("kegiatan", "")})
+            if p:
+                await db.realisasi.update_one({"_id": r["_id"]}, {"$set": {"project_id": p["id"]}})
 
 
 app.include_router(api)
