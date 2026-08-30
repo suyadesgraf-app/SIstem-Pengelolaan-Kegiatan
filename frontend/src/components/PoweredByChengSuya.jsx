@@ -13,6 +13,12 @@ export const PoweredByChengSuya = ({ context = "login" }) => (
       context === "sidebar" ? "text-[11px] font-semibold" : "text-xs font-semibold"
     }`}
   >
+    <span
+      data-testid={context === "sidebar" ? "powered-by-cheng-suya-sidebar-prefix" : "powered-by-cheng-suya-login-prefix"}
+      className="inline"
+    >
+      Powered by
+    </span>
     <Instagram
       data-testid={context === "sidebar" ? "powered-by-cheng-suya-sidebar-icon" : "powered-by-cheng-suya-login-icon"}
       className="w-4 h-4 transition group-hover:rotate-6"

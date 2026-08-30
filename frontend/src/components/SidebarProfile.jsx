@@ -26,7 +26,7 @@ export default function SidebarProfile({ user }) {
           <span className="text-gray-700 font-medium">BAZNAS BAZIS DKI</span>
         </div>
       </div>
-      <div className="w-full pt-4 mt-auto border-t border-gray-100 flex justify-start" data-testid="sidebar-powered-by-section">
+      <div className="w-full pt-4 mt-auto border-t border-gray-100 flex justify-center" data-testid="sidebar-powered-by-section">
         <PoweredByChengSuya context="sidebar" />
       </div>
     </div>

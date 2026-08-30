@@ -50,6 +50,11 @@
 - Branding dashboard dipindahkan ke sisi kiri paling bawah kartu sidebar profil, tetap tanpa background, border, atau padding chip.
 - Verifikasi ulang berhasil: `yarn build` sukses, smoke test Playwright PASS, dan frontend testing agent menegaskan posisi kiri-bawah serta tampilan tanpa kotak di kedua lokasi.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 15) — Branding Final `Powered by`
+- Branding login kini memakai urutan final `Powered by` + ikon Instagram + `Cheng Suya`, tetap polos tanpa kotak dan tetap berada di bawah tengah area login.
+- Branding dashboard direposisi lagi ke center paling bawah kartu sidebar akun, memakai urutan teks yang sama dan tanpa gaya chip/kotak.
+- Verifikasi final berhasil: `yarn build` sukses, smoke test Playwright PASS, dan frontend testing agent memastikan posisi center bawah serta urutan elemen sesuai arahan terakhir.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 7) — Chat Ide Otomatis Terbuka
 - Saat pengguna membuka sub-tab "Buat Ide Kegiatan", popup Chat AI kini langsung tampil otomatis tanpa perlu tombol "Buka Chat AI".
 - Tombol/menu pembuka chat dihapus agar alur ide lebih cepat dan ruang draft tetap bersih.
