@@ -249,13 +249,17 @@ class ProjectIn(BaseModel):
     plafon: int = 0
 
 
+class ProjectIndexIn(BaseModel):
+    nomor_indeks: str
+
+
 @api.post("/projects")
 async def create_project(body: ProjectIn, user=Depends(get_current_user)):
     if user["role"] == "relawan":
         raise HTTPException(403, "Relawan tidak dapat membuat kegiatan")
     count = await db.projects.count_documents({})
     tint = TINTS[count % len(TINTS)]
-    doc = {"id": str(uuid.uuid4()), "nomor_indeks": f"00-26{count + 1:06d}",
+    doc = {"id": str(uuid.uuid4()), "nomor_indeks": "",
            "name": body.name, "loc": body.loc, "date": body.date,
            "plafon": body.plafon, "realisasi": 0, "slaDays": 0, "status": "Perencanaan",
            "tint": {**tint, "ini": body.name[:2].upper()}, "created_by": user["id"],
@@ -266,7 +270,7 @@ async def create_project(body: ProjectIn, user=Depends(get_current_user)):
         if relawans:
             await db.notifications.insert_many([
                 {"id": str(uuid.uuid4()), "user_id": r["id"],
-                 "message": f"Kegiatan baru: {doc['name']} ({doc['nomor_indeks']})"
+                 "message": f"Kegiatan baru: {doc['name']}"
                             + (f" di {doc['loc']}." if doc['loc'] else ".")
                             + " Anda dapat mulai input laporan nota.",
                  "read": False, "created_at": datetime.now(timezone.utc).isoformat()}
@@ -285,6 +289,42 @@ async def ensure_project_access(pid: str, user: dict):
     return project
 
 
+def normalize_nomor_indeks(value: str) -> str:
+    nomor = (value or "").strip()
+    if not nomor:
+        raise HTTPException(400, "Nomor indeks wajib diisi saat membuat laporan kegiatan")
+    if len(nomor) > 80:
+        raise HTTPException(400, "Nomor indeks maksimal 80 karakter")
+    return nomor
+
+
+async def set_project_nomor_indeks(pid: str, nomor_indeks: str, user: dict):
+    project = await ensure_project_access(pid, user)
+    nomor = normalize_nomor_indeks(nomor_indeks)
+    duplicate = await db.projects.find_one({"nomor_indeks": nomor, "id": {"$ne": pid}}, {"_id": 0, "id": 1})
+    if duplicate:
+        raise HTTPException(409, "Nomor indeks sudah digunakan kegiatan lain")
+    old_nomor = project.get("nomor_indeks") or ""
+    now = datetime.now(timezone.utc).isoformat()
+    await db.projects.update_one({"id": pid}, {"$set": {
+        "nomor_indeks": nomor,
+        "nomor_indeks_updated_by": user["id"],
+        "nomor_indeks_updated_at": now,
+    }})
+    if old_nomor and old_nomor != nomor:
+        await db.files.update_many({"ref": old_nomor}, {"$set": {"ref": nomor}})
+        await db.reports.update_many({"project_id": pid}, {"$set": {"nomor_indeks": nomor}})
+    updated = await db.projects.find_one({"id": pid}, {"_id": 0})
+    return updated
+
+
+@api.put("/projects/{pid}/nomor-indeks")
+async def update_project_nomor_indeks(pid: str, body: ProjectIndexIn, user=Depends(get_current_user)):
+    if user["role"] == "relawan":
+        raise HTTPException(403, "Relawan tidak dapat mengubah nomor indeks")
+    return await set_project_nomor_indeks(pid, body.nomor_indeks, user)
+
+
 @api.delete("/projects/{pid}")
 async def delete_project(pid: str, user=Depends(get_current_user)):
     if user["role"] not in ("superadmin", "pic"):
@@ -298,8 +338,9 @@ async def delete_project(pid: str, user=Depends(get_current_user)):
         "reports": (await db.reports.delete_many({"project_id": pid})).deleted_count,
         "realisasi": (await db.realisasi.delete_many({"project_id": pid})).deleted_count,
     }
+    file_refs = [ref for ref in [pid, project.get("nomor_indeks")] if ref]
     files_res = await db.files.update_many(
-        {"ref": {"$in": [pid, project.get("nomor_indeks", "")]}, "is_deleted": False},
+        {"ref": {"$in": file_refs}, "is_deleted": False},
         {"$set": {"is_deleted": True, "deleted_by": user["id"], "deleted_at": datetime.now(timezone.utc).isoformat()}},
     )
     deleted["files"] = files_res.modified_count
@@ -426,9 +467,10 @@ async def approve_project(pid: str, user=Depends(get_current_user)):
         raise HTTPException(404, "Kegiatan tidak ditemukan")
     project = await db.projects.find_one({"id": pid})
     if project and project.get("created_by") and project["created_by"] != user["id"]:
+        index_label = f" ({project.get('nomor_indeks')})" if project.get("nomor_indeks") else ""
         await db.notifications.insert_one({
             "id": str(uuid.uuid4()), "user_id": project["created_by"],
-            "message": f"Laporan kegiatan \"{project['name']}\" ({project['nomor_indeks']}) telah DISAHKAN oleh {user['name']}.",
+            "message": f"Laporan kegiatan \"{project['name']}\"{index_label} telah DISAHKAN oleh {user['name']}.",
             "read": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return {"ok": True}
 
@@ -456,21 +498,32 @@ async def revise_project(pid: str, body: Optional[RevisionIn] = None, user=Depen
     project = await db.projects.find_one({"id": pid})
     if project and project.get("created_by") and project["created_by"] != user["id"]:
         note = f" Poin perbaikan: {revision_message}" if revision_message else ""
+        index_label = f" ({project.get('nomor_indeks')})" if project.get("nomor_indeks") else ""
         await db.notifications.insert_one({
             "id": str(uuid.uuid4()), "user_id": project["created_by"],
-            "message": f"Laporan kegiatan \"{project['name']}\" ({project['nomor_indeks']}) PERLU REVISI.{note} Silakan perbarui dokumen lalu submit ulang.",
+            "message": f"Laporan kegiatan \"{project['name']}\"{index_label} PERLU REVISI.{note} Silakan perbarui dokumen lalu submit ulang.",
             "read": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return {"ok": True}
 
 
 class SubmitIn(BaseModel):
     nomor_indeks: str
+    project_id: Optional[str] = None
 
 
 @api.post("/projects/submit")
 async def submit_report(body: SubmitIn, user=Depends(get_current_user)):
+    nomor = normalize_nomor_indeks(body.nomor_indeks)
+    if body.project_id:
+        project = await set_project_nomor_indeks(body.project_id, nomor, user)
+        res = await db.projects.update_one(
+            {"id": project["id"]},
+            {"$set": {"status": "Menunggu", "slaDays": 2}})
+        if res.matched_count == 0:
+            raise HTTPException(404, "Kegiatan tidak ditemukan")
+        return {"ok": True}
     res = await db.projects.update_one(
-        {"nomor_indeks": body.nomor_indeks},
+        {"nomor_indeks": nomor},
         {"$set": {"status": "Menunggu", "slaDays": 2}})
     if res.matched_count == 0:
         raise HTTPException(404, "Nomor indeks kegiatan tidak ditemukan")
@@ -923,6 +976,9 @@ class ReportIn(BaseModel):
 @api.post("/ai/report")
 async def generate_report(body: ReportIn, user=Depends(get_current_user)):
     prov, model = resolve_model(body.provider, "doc")
+    nomor = normalize_nomor_indeks(body.nomor_indeks)
+    if body.project_id:
+        await set_project_nomor_indeks(body.project_id, nomor, user)
     system = ("Anda penyusun Laporan Pertanggungjawaban (LPJ) resmi BAZNAS BAZIS Provinsi DKI Jakarta. "
               "Balas HANYA JSON valid: {\"title\": str, \"sections\": [{\"heading\": str, \"body\": str}]} "
               "dengan bagian: BAB I: PENDAHULUAN; BAB II: PELAKSANAAN KEGIATAN; BAB III: REALISASI ANGGARAN; "
@@ -930,12 +986,12 @@ async def generate_report(body: ReportIn, user=Depends(get_current_user)):
     try:
         raw = await llm_complete(
             system,
-            f"Nomor indeks: {body.nomor_indeks}\nReferensi KAK: {body.kak_name or '-'}\nPoin lapangan:\n{body.points}",
+            f"Nomor indeks: {nomor}\nReferensi KAK: {body.kak_name or '-'}\nPoin lapangan:\n{body.points}",
             provider=prov, model=model)
         data = parse_llm_json(raw)
         if body.project_id:
             await db.reports.insert_one({"id": str(uuid.uuid4()), "project_id": body.project_id,
-                                         "nomor_indeks": body.nomor_indeks, "kak_name": body.kak_name,
+                                         "nomor_indeks": nomor, "kak_name": body.kak_name,
                                          "title": data.get("title", ""), "sections": data.get("sections", []),
                                          "provider": prov, "created_by": user["id"],
                                          "created_at": datetime.now(timezone.utc).isoformat()})

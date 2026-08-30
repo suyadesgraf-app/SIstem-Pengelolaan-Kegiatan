@@ -47,6 +47,9 @@ export default function KegiatanWorkspace() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const canDeleteProject = user.role === "pic" || user.role === "superadmin";
+  const showNomorIndeks = Boolean(
+    project?.nomor_indeks && (project?.nomor_indeks_updated_at || project?.progress?.laporan > 0 || project?.status !== "Perencanaan")
+  );
 
   useEffect(() => {
     api.get("/projects").then((r) => {
@@ -97,7 +100,9 @@ export default function KegiatanWorkspace() {
                     <h1 className="font-heading text-xl font-extrabold text-gray-900" data-testid="workspace-project-name">{project.name}</h1>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${STATUS_STYLE[project.status] || "bg-gray-100 text-gray-700"}`}>{project.status}</span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">{project.nomor_indeks} • {project.loc} • {project.date}</p>
+                  <p className="text-xs text-gray-500 mt-1" data-testid="workspace-project-meta">
+                    {[showNomorIndeks ? project.nomor_indeks : "", project.loc, project.date].filter(Boolean).join(" • ")}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
@@ -174,7 +179,7 @@ export default function KegiatanWorkspace() {
                 {sub === "rab" && <RabTab projectId={project.id} />}
                 {sub === "kak" && <KakTab project={project} />}
                 {sub === "keuangan" && <KeuanganTab project={project} />}
-                {sub === "laporan" && <LaporanTab project={project} />}
+                {sub === "laporan" && <LaporanTab project={project} onProjectUpdate={setProject} />}
               </motion.div>
             </AnimatePresence>
           </>

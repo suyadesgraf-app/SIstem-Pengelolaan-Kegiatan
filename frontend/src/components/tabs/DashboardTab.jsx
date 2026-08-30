@@ -48,7 +48,7 @@ export default function DashboardTab() {
         name: newK.name.trim(), loc: newK.loc.trim(), date: newK.date.trim(),
         plafon: parseInt(newK.plafon) || 0,
       });
-      toast.success(`Kegiatan "${r.data.name}" dibuat (${r.data.nomor_indeks})`);
+      toast.success(`Kegiatan "${r.data.name}" dibuat`);
       setShowCreate(false);
       setNewK({ name: "", loc: "", date: "", plafon: "" });
       navigate(`/kegiatan/${r.data.id}`);

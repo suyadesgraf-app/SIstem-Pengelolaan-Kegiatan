@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, FileCheck2, Pencil, Send, Sparkles, Trash2, Upload } from "lucide-react";
+import { Download, FileCheck2, Pencil, Save, Send, Sparkles, Trash2, Upload } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import ModelPicker from "@/components/ModelPicker";
 
@@ -13,12 +13,17 @@ const LAMPIRAN = [
   "Lampiran Lainnya (Opsional)",
 ];
 
-export default function LaporanTab({ project = null }) {
-  const nomorIndeks = project?.nomor_indeks || "";
+export default function LaporanTab({ project = null, onProjectUpdate = null }) {
+  const showSavedProjectNomorIndeks = Boolean(
+    project?.nomor_indeks && (project?.nomor_indeks_updated_at || project?.progress?.laporan > 0 || project?.status !== "Perencanaan")
+  );
+  const savedProjectNomorIndeks = showSavedProjectNomorIndeks ? project?.nomor_indeks || "" : "";
+  const [nomorIndeks, setNomorIndeks] = useState(savedProjectNomorIndeks);
   const [kakName, setKakName] = useState("");
   const [points, setPoints] = useState("");
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [savingIndex, setSavingIndex] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [uploaded, setUploaded] = useState({});
   const [files, setFiles] = useState([]);
@@ -30,6 +35,10 @@ export default function LaporanTab({ project = null }) {
   const replaceFileRef = useRef(null);
   const previewRef = useRef(null);
   const canEditAttachments = project?.status === "Perencanaan";
+
+  useEffect(() => {
+    setNomorIndeks(savedProjectNomorIndeks);
+  }, [project?.id, savedProjectNomorIndeks]);
 
   const handlePreviewWheel = (event) => {
     const panel = previewRef.current;
@@ -55,11 +64,11 @@ export default function LaporanTab({ project = null }) {
   }, []);
 
   const loadFiles = useCallback(() => {
-    if (!nomorIndeks) return Promise.resolve();
-    return api.get(`/files?ref=${encodeURIComponent(nomorIndeks)}`).then((r) => {
+    if (!savedProjectNomorIndeks) return Promise.resolve();
+    return api.get(`/files?ref=${encodeURIComponent(savedProjectNomorIndeks)}`).then((r) => {
       applyFileState(r.data);
     }).catch(() => {});
-  }, [applyFileState, nomorIndeks]);
+  }, [applyFileState, savedProjectNomorIndeks]);
 
   useEffect(() => {
     if (!project?.id) return;
@@ -72,11 +81,27 @@ export default function LaporanTab({ project = null }) {
     loadFiles();
   }, [loadFiles]);
 
+  const saveNomorIndeks = async ({ silent = false } = {}) => {
+    const value = nomorIndeks.trim();
+    if (!value) throw new Error("Nomor indeks wajib diisi saat membuat laporan kegiatan");
+    setSavingIndex(true);
+    try {
+      const response = await api.put(`/projects/${project.id}/nomor-indeks`, { nomor_indeks: value });
+      setNomorIndeks(response.data.nomor_indeks || value);
+      onProjectUpdate?.(response.data);
+      if (!silent) toast.success("Nomor indeks laporan disimpan");
+      return response.data.nomor_indeks || value;
+    } finally {
+      setSavingIndex(false);
+    }
+  };
+
   const uploadFile = async (file, kind, label) => {
+    const savedNomorIndeks = await saveNomorIndeks({ silent: true });
     const fd = new FormData();
     fd.append("file", file);
     const r = await api.post(
-      `/files/upload?kind=${kind}&label=${encodeURIComponent(label)}&ref=${encodeURIComponent(nomorIndeks)}`,
+      `/files/upload?kind=${kind}&label=${encodeURIComponent(label)}&ref=${encodeURIComponent(savedNomorIndeks)}`,
       fd
     );
     return r.data;
@@ -147,7 +172,8 @@ export default function LaporanTab({ project = null }) {
     setLoading(true);
     setAiError("");
     try {
-      const r = await api.post("/ai/report", { nomor_indeks: nomorIndeks, points, kak_name: kakName, provider, project_id: project?.id });
+      const savedNomorIndeks = await saveNomorIndeks({ silent: true });
+      const r = await api.post("/ai/report", { nomor_indeks: savedNomorIndeks, points, kak_name: kakName, provider, project_id: project?.id });
       setDoc(r.data);
       toast.success(`Laporan AI berhasil dibuat (${provider === "gemini" ? "Gemini 3.1 Pro" : "GPT-5.4"})!`);
     } catch (e2) {
@@ -161,8 +187,9 @@ export default function LaporanTab({ project = null }) {
 
   const submit = async () => {
     try {
-      await api.post("/projects/submit", { nomor_indeks: nomorIndeks });
-      toast.success(`Laporan (${nomorIndeks}) berhasil disubmit ke Verifikator!`);
+      const savedNomorIndeks = await saveNomorIndeks({ silent: true });
+      await api.post("/projects/submit", { nomor_indeks: savedNomorIndeks, project_id: project?.id });
+      toast.success(`Laporan (${savedNomorIndeks}) berhasil disubmit ke Verifikator!`);
     } catch (e2) {
       toast.error(formatApiError(e2));
     }
@@ -175,10 +202,28 @@ export default function LaporanTab({ project = null }) {
           <h2 className="font-heading text-lg font-bold text-gray-800">AI Report Generator</h2>
           <p className="text-sm text-gray-500">Masukkan poin mentah lapangan, AI akan merangkai dokumen Laporan Akhir sesuai format baku BAZNAS.</p>
           <div>
-            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nomor Indeks</label>
-            <div data-testid="laporan-nomor-indeks" className="w-full text-xs border border-gray-200 rounded-lg p-2.5 bg-gray-50 font-semibold text-gray-700">
-              {nomorIndeks}{project?.name ? ` — ${project.name}` : ""}
+            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nomor Indeks Laporan</label>
+            <div className="flex gap-2">
+              <input
+                data-testid="laporan-nomor-indeks-input"
+                value={nomorIndeks}
+                onChange={(e) => setNomorIndeks(e.target.value)}
+                disabled={!canEditAttachments || savingIndex}
+                placeholder="Input nomor indeks saat membuat laporan"
+                className="w-full text-xs border border-gray-300 rounded-lg p-2.5 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition disabled:opacity-60"
+              />
+              <button
+                data-testid="laporan-nomor-indeks-save"
+                onClick={() => saveNomorIndeks().catch((e) => toast.error(formatApiError(e)))}
+                disabled={!canEditAttachments || savingIndex}
+                title="Simpan nomor indeks"
+                aria-label="Simpan nomor indeks laporan"
+                className="w-10 h-10 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 active:scale-95 transition flex items-center justify-center disabled:opacity-60"
+              >
+                <Save className="w-4 h-4" />
+              </button>
             </div>
+            {project?.name && <p className="text-[11px] text-gray-400 mt-1" data-testid="laporan-project-name-note">{project.name}</p>}
           </div>
           <div>
             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Upload KAK Disetujui / Bertandatangan (Referensi Laporan)</label>
