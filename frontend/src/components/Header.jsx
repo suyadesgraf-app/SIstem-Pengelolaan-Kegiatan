@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { LayoutDashboard, LogOut, Bell } from "lucide-react";
+import { LayoutDashboard, FolderOpen, LogOut, Bell } from "lucide-react";
 import api from "@/lib/api";
 
-export default function Header({ user, onLogout }) {
+export default function Header({ user, onLogout, activeMenu = "dashboard", onNavigateDashboard, onNavigateCompleted }) {
   const [notifs, setNotifs] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef(null);
@@ -45,11 +45,25 @@ export default function Header({ user, onLogout }) {
           <nav className="flex items-center space-x-2 sm:space-x-5 text-sm font-medium text-gray-600">
             <button
               data-testid="nav-dashboard"
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="hidden md:flex items-center space-x-1.5 hover:text-emerald-700 transition"
+              onClick={() => {
+                onNavigateDashboard?.();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className={`hidden md:flex items-center space-x-1.5 transition ${activeMenu === "dashboard" ? "text-emerald-700" : "hover:text-emerald-700"}`}
             >
               <LayoutDashboard className="w-4 h-4" />
               <span>Dashboard</span>
+            </button>
+            <button
+              data-testid="nav-daftar-kegiatan"
+              onClick={() => {
+                onNavigateCompleted?.();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className={`hidden md:flex items-center space-x-1.5 transition ${activeMenu === "completed" ? "text-emerald-700" : "hover:text-emerald-700"}`}
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>Daftar Kegiatan</span>
             </button>
             <div className="relative" ref={notifRef}>
               <button

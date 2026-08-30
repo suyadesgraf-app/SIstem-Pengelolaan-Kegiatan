@@ -5,19 +5,22 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import ProjectCard from "@/components/ProjectCard";
 
-const STATUS_STYLE = {
-  Selesai: "bg-emerald-100 text-emerald-800",
-  Menunggu: "bg-amber-100 text-amber-800",
-  Diverifikasi: "bg-blue-100 text-blue-800",
-  Perencanaan: "bg-sky-100 text-sky-800",
-};
 const SLA_COLORS = ["#10b981", "#fbbf24", "#ef4444"];
+const COMPLETED_STATUSES = ["Selesai", "Diverifikasi"];
 
 const fmtMiliar = (v) =>
   v >= 1000
     ? `Rp ${(v / 1000).toLocaleString("id-ID", { maximumFractionDigits: 2 })} M`
     : `Rp ${v} Jt`;
+
+const sortNewest = (items) => [...items].sort((a, b) => {
+  const dateA = Date.parse(a.created_at || "") || 0;
+  const dateB = Date.parse(b.created_at || "") || 0;
+  if (dateA !== dateB) return dateB - dateA;
+  return String(b.nomor_indeks || "").localeCompare(String(a.nomor_indeks || ""));
+});
 
 export default function DashboardTab() {
   const { user } = useAuth();
@@ -56,11 +59,14 @@ export default function DashboardTab() {
     }
   };
 
+  const sortedProjects = sortNewest(projects);
+  const activeProjects = sortedProjects.filter((p) => !COMPLETED_STATUSES.includes(p.status));
+  const completedProjects = sortedProjects.filter((p) => COMPLETED_STATUSES.includes(p.status));
   const filtered = filter === "warning"
-    ? projects.filter((p) => p.status === "Menunggu" || p.slaDays > 0)
-    : projects;
+    ? activeProjects.filter((p) => p.status === "Menunggu" || p.slaDays > 0)
+    : activeProjects;
 
-  const barData = projects.map((p) => ({ name: p.name, Anggaran: p.plafon, Realisasi: p.realisasi }));
+  const barData = activeProjects.map((p) => ({ name: p.name, Anggaran: p.plafon, Realisasi: p.realisasi }));
   const maxBudget = Math.max(1, ...barData.flatMap((p) => [p.Anggaran || 0, p.Realisasi || 0]));
   const slaData = stats
     ? [
@@ -96,17 +102,17 @@ export default function DashboardTab() {
         <motion.div whileHover={{ y: -4 }} className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between" data-testid="stat-kegiatan">
           <span className="text-[10px] font-bold text-gray-400 uppercase">Total Kegiatan</span>
           <span className="text-xl font-heading font-extrabold text-gray-900 mt-0.5">
-            {stats ? `${stats.totalKegiatan} Aktif` : "—"}
+            {stats ? `${activeProjects.length} Aktif` : "—"}
           </span>
           <div className="flex items-center space-x-2 mt-2">
-            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-3 py-1 rounded-full">{stats?.proses ?? 0} Proses</span>
-            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-3 py-1 rounded-full">{stats?.selesai ?? 0} Selesai</span>
+            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-3 py-1 rounded-full" data-testid="stat-kegiatan-proses">{activeProjects.length} Proses</span>
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-3 py-1 rounded-full" data-testid="stat-kegiatan-selesai">{completedProjects.length} Selesai</span>
           </div>
         </motion.div>
       </div>
 
       <div className="flex justify-between items-center mb-2 mt-4 flex-wrap gap-2">
-        <h2 className="font-heading text-lg font-bold text-gray-800">Status & Jadwal Pendaftaran Kegiatan</h2>
+        <h2 className="font-heading text-lg font-bold text-gray-800" data-testid="active-projects-heading">Kegiatan Dalam Proses Terbaru</h2>
         <div className="flex space-x-2 items-center">
           {canCreate && (
             <button
@@ -155,55 +161,10 @@ export default function DashboardTab() {
 
       <div className="space-y-4" data-testid="project-list">
         {filtered.map((p, i) => (
-          <motion.div
-            key={p.id}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06, duration: 0.4 }}
-            className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition hover:border-emerald-300 hover:shadow-md cursor-pointer"
-            onClick={() => navigate(`/kegiatan/${p.id}`)}
-            data-testid={`project-card-${p.nomor_indeks}`}
-          >
-            <div className="flex items-center space-x-4">
-              <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center font-heading font-extrabold text-sm border border-gray-100"
-                style={{ backgroundColor: p.tint?.bg, color: p.tint?.fg }}
-              >
-                {p.tint?.ini || p.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h3 className="font-bold text-gray-800">{p.name}</h3>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${STATUS_STYLE[p.status] || "bg-gray-100 text-gray-700"}`}>
-                    {p.status}
-                  </span>
-                </div>
-                <div className="flex items-center text-[11px] text-gray-500 mt-1 space-x-3">
-                  <span>{p.loc}</span>
-                  <span>{p.date}</span>
-                  <span className="text-gray-400">{p.nomor_indeks}</span>
-                </div>
-                <div className="flex items-center flex-wrap gap-1.5 mt-2" data-testid={`progress-${p.nomor_indeks}`}>
-                  {[["Ide", "idea"], ["RAB", "rab"], ["KAK", "kak"], ["Keuangan", "keuangan"], ["Laporan", "laporan"]].map(([label, key]) => (
-                    <span key={key} className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${p.progress?.[key] > 0 ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-400"}`}>
-                      {p.progress?.[key] > 0 ? "✓" : "—"} {label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4 w-full md:w-auto justify-end border-t md:border-t-0 pt-3 md:pt-0 mt-3 md:mt-0 border-gray-100">
-              <div className="text-right">
-                <p className="text-[10px] text-gray-400 font-bold uppercase">Realisasi</p>
-                <p className="text-sm font-heading font-bold text-emerald-600">
-                  {p.plafon ? Math.round((p.realisasi / p.plafon) * 100) : 0}%
-                </p>
-              </div>
-            </div>
-          </motion.div>
+          <ProjectCard key={p.id} project={p} index={i} onOpen={(item) => navigate(`/kegiatan/${item.id}`)} />
         ))}
         {filtered.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-8" data-testid="project-list-empty">Tidak ada kegiatan pada filter ini.</p>
+          <p className="text-sm text-gray-400 text-center py-8" data-testid="project-list-empty">Tidak ada kegiatan dalam proses pada filter ini.</p>
         )}
       </div>
 

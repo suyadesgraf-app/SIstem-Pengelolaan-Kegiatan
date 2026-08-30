@@ -33,6 +33,12 @@
 - Menu/header `Daftar Kegiatan` dihapus sesuai permintaan pengguna, sehingga navigasi atas kini hanya menampilkan Dashboard, notifikasi, identitas pengguna, dan Keluar.
 - Verifikasi frontend berhasil: `yarn build` sukses dan smoke test Playwright memastikan teks `Daftar Kegiatan` tidak lagi muncul di header dashboard.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 17) — Menu Daftar Kegiatan Selesai
+- Menu/header `Daftar Kegiatan` ditambahkan kembali dan kini membuka tampilan khusus daftar kegiatan yang sudah selesai (`Selesai` atau `Diverifikasi`).
+- Dashboard utama kini hanya menampilkan kegiatan yang masih dalam proses, diurutkan dari yang terbaru paling atas, sementara kartu statistik membedakan jumlah Proses dan Selesai dari data yang sedang dimuat.
+- Daftar Kegiatan dilengkapi pencarian nama/nomor indeks/lokasi/tanggal/status dan kartu kegiatan reusable agar tampilan dashboard serta arsip selesai tetap konsisten.
+- Verifikasi frontend berhasil: `yarn build` sukses; Playwright memastikan menu muncul kembali, Dashboard tidak memuat status selesai, dan Daftar Kegiatan hanya memuat status `Selesai`/`Diverifikasi`.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
