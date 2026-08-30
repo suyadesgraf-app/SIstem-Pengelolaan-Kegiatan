@@ -27,6 +27,7 @@
 - Composer pesan dipadatkan menjadi satu baris; pengguna dapat melampirkan PDF atau foto, melihat nama lampiran, dan membatalkannya sebelum mengirim.
 - Lampiran chat disimpan nyata melalui object storage, dibatasi PDF/foto dan 15MB, dicatat pada riwayat percakapan, serta dapat dibuka kembali dari bubble pesan.
 - Rekomendasi pertanyaan AI kini dipisahkan dari bubble balasan dan ditampilkan sebagai daftar tombol putih ringkas berbingkai emerald agar teks panjang tetap mudah dibaca.
+- Preview KAK dan Laporan Kegiatan kini menangkap roda mouse/touchpad saat kursor berada di panel, dengan scroll lokal, overscroll tertahan, dan scrollbar tipis yang terlihat.
 
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 7) — Chat Ide Otomatis Terbuka
 - Saat pengguna membuka sub-tab "Buat Ide Kegiatan", popup Chat AI kini langsung tampil otomatis tanpa perlu tombol "Buka Chat AI".
@@ -106,6 +107,7 @@
 - Sesi 9: Playwright smoke test OK untuk login PIC → buka workspace → tab Ide menampilkan popup chat dengan styling gelap ala referensi Emmy; render header, bubble pesan, dan composer baru tampil normal.
 - Sesi 10: Build frontend dan `py_compile` backend OK. Playwright login PIC → workspace → Chat Ide berhasil memverifikasi popup putih 300px serta pemilihan PDF. curl berhasil mengunggah lalu menghapus PDF uji; validasi API menolak referensi lampiran chat yang tidak sah (400).
 - Sesi 10 (penyempurnaan): Playwright memverifikasi rekomendasi pertanyaan tampil sebagai daftar tombol ringkas dan dapat dipilih dari popup Chat Ide.
+- Sesi 10 (preview dokumen): Playwright memverifikasi scroll lokal KAK berubah 0→960 dengan roda mouse. Untuk konten Laporan yang panjang, handler preview juga terverifikasi berubah 0→581; build frontend berhasil.
 
 ## Backlog Prioritas
 - P0: Tidak ada blocker aktif pada alur utama saat ini.

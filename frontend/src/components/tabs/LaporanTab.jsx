@@ -27,7 +27,16 @@ export default function LaporanTab({ project = null }) {
   const kakFileRef = useRef(null);
   const lampFileRef = useRef(null);
   const replaceFileRef = useRef(null);
+  const previewRef = useRef(null);
   const canEditAttachments = project?.status === "Perencanaan";
+
+  const handlePreviewWheel = (event) => {
+    const panel = previewRef.current;
+    if (!panel || panel.scrollHeight <= panel.clientHeight) return;
+    event.preventDefault();
+    event.stopPropagation();
+    panel.scrollTop += event.deltaY;
+  };
 
   const applyFileState = useCallback((rows = []) => {
     const up = {};
@@ -192,7 +201,7 @@ export default function LaporanTab({ project = null }) {
           </button>
         </div>
 
-        <div className="flex-1 bg-[#fcfcfc] border border-gray-200 rounded-xl p-6 relative h-[480px] overflow-y-auto font-doc text-xs text-gray-800 space-y-4 shadow-inner" data-testid="laporan-preview">
+        <div ref={previewRef} onWheel={handlePreviewWheel} className="document-scroll-area flex-1 bg-[#fcfcfc] border border-gray-200 rounded-xl p-6 relative h-[480px] overflow-y-auto overscroll-y-contain touch-pan-y font-doc text-xs text-gray-800 space-y-4 shadow-inner" data-testid="laporan-preview" aria-label="Pratinjau laporan kegiatan yang dapat digulir">
           <span className="absolute top-3 right-3 text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold font-sans">
             {loading ? "Generating Laporan AI..." : doc ? "Selesai" : "Format Resmi BAZNAS"}
           </span>

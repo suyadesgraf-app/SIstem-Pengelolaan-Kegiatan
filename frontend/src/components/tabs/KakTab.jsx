@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ClipboardCheck, Printer, Sparkles } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
@@ -19,6 +19,15 @@ export default function KakTab({ project = null }) {
   const [provider, setProvider] = useState("gemini");
   const [history, setHistory] = useState([]);
   const [idea, setIdea] = useState(null);
+  const previewRef = useRef(null);
+
+  const handlePreviewWheel = (event) => {
+    const panel = previewRef.current;
+    if (!panel || panel.scrollHeight <= panel.clientHeight) return;
+    event.preventDefault();
+    event.stopPropagation();
+    panel.scrollTop += event.deltaY;
+  };
 
   useEffect(() => {
     if (!project?.id) return;
@@ -118,8 +127,11 @@ export default function KakTab({ project = null }) {
 
       <div
         id="kak-print-area"
-        className="flex-1 bg-[#fcfcfc] border border-gray-200 rounded-xl p-6 relative h-[580px] overflow-y-auto font-doc text-xs text-gray-800 space-y-4 shadow-inner"
+        ref={previewRef}
+        onWheel={handlePreviewWheel}
+        className="document-scroll-area flex-1 bg-[#fcfcfc] border border-gray-200 rounded-xl p-6 relative h-[580px] overflow-y-auto overscroll-y-contain touch-pan-y font-doc text-xs text-gray-800 space-y-4 shadow-inner"
         data-testid="kak-preview"
+        aria-label="Pratinjau dokumen KAK yang dapat digulir"
       >
         <span className="absolute top-3 right-3 text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold font-sans no-print">
           {doc ? "KAK Resmi Disusun AI" : "Format Resmi BAZNAS"}
