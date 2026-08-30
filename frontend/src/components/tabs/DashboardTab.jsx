@@ -181,6 +181,13 @@ export default function DashboardTab() {
                   <span>{p.date}</span>
                   <span className="text-gray-400">{p.nomor_indeks}</span>
                 </div>
+                <div className="flex items-center flex-wrap gap-1.5 mt-2" data-testid={`progress-${p.nomor_indeks}`}>
+                  {[["KAK", "kak"], ["RAB", "rab"], ["Keuangan", "keuangan"], ["Laporan", "laporan"]].map(([label, key]) => (
+                    <span key={key} className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${p.progress?.[key] > 0 ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-400"}`}>
+                      {p.progress?.[key] > 0 ? "✓" : "—"} {label}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-4 w-full md:w-auto justify-end border-t md:border-t-0 pt-3 md:pt-0 mt-3 md:mt-0 border-gray-100">

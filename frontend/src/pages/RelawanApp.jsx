@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Camera, ScanLine, Home, History, LogOut, Wallet, ReceiptText, Signal } from "lucide-react";
+import { Camera, ScanLine, Home, History, LogOut, Wallet, ReceiptText, Signal, Bell } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { fileToResizedBase64 } from "@/lib/ocr";
 import ModelPicker from "@/components/ModelPicker";
@@ -20,11 +20,17 @@ export default function RelawanApp() {
   const [scanning, setScanning] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [form, setForm] = useState({ merchant: "", nominal: "", tanggal: "", kegiatan: "", projectId: "" });
+  const [notifs, setNotifs] = useState([]);
+  const [showNotifs, setShowNotifs] = useState(false);
   const fileRef = useRef(null);
+
+  const loadNotifs = () => api.get("/notifications").then((r) => setNotifs(r.data)).catch(() => {});
+  const unread = notifs.filter((n) => !n.read).length;
 
   const load = () => {
     api.get("/realisasi?mine=true").then((r) => setItems(r.data)).catch(() => {});
     api.get("/projects").then((r) => setProjects(r.data)).catch(() => {});
+    loadNotifs();
   };
   useEffect(() => { load(); }, []);
 
@@ -84,7 +90,15 @@ export default function RelawanApp() {
         <div className="bg-emerald-800 text-white px-5 pt-5 pb-6 rounded-b-3xl">
           <div className="flex justify-between items-center text-[10px] text-emerald-200 mb-4">
             <span className="font-semibold">09:41</span>
-            <span className="flex items-center space-x-1 font-bold"><Signal className="w-3 h-3" /><span>ONLINE</span></span>
+            <span className="flex items-center space-x-3 font-bold">
+              <button data-testid="relawan-notif-bell" onClick={() => setShowNotifs(true)} className="relative p-1 hover:text-white transition">
+                <Bell className="w-4 h-4" />
+                {unread > 0 && (
+                  <span data-testid="relawan-notif-badge" className="absolute -top-1.5 -right-1.5 bg-amber-400 text-emerald-950 text-[8px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">{unread}</span>
+                )}
+              </button>
+              <span className="flex items-center space-x-1"><Signal className="w-3 h-3" /><span>ONLINE</span></span>
+            </span>
           </div>
           <p className="text-emerald-200 text-xs">Assalamu'alaikum,</p>
           <h1 className="font-heading font-extrabold text-xl tracking-tight" data-testid="relawan-user-name">{user.name}</h1>
@@ -250,6 +264,50 @@ export default function RelawanApp() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* NOTIFICATION PANEL */}
+        <AnimatePresence>
+          {showNotifs && (
+            <motion.div
+              className="absolute inset-0 z-30 bg-black/40"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowNotifs(false)}
+              data-testid="relawan-notif-overlay"
+            >
+              <motion.div
+                initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 26, stiffness: 300 }}
+                className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-5 max-h-[70%] overflow-y-auto scrollbar-hide"
+                onClick={(e) => e.stopPropagation()}
+                data-testid="relawan-notif-panel"
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <p className="font-heading font-bold text-sm text-gray-800">Notifikasi</p>
+                  <button
+                    data-testid="relawan-notif-read-all"
+                    onClick={async () => { await api.post("/notifications/read-all").catch(() => {}); loadNotifs(); }}
+                    className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900"
+                  >
+                    Tandai semua dibaca
+                  </button>
+                </div>
+                <div className="space-y-2.5 pb-6">
+                  {notifs.map((n) => (
+                    <div
+                      key={n.id}
+                      data-testid={`relawan-notif-${n.id}`}
+                      className={`rounded-2xl border p-3.5 text-xs leading-relaxed ${n.read ? "border-gray-200 bg-gray-50 text-gray-500" : "border-emerald-200 bg-emerald-50 text-gray-800 font-medium"}`}
+                    >
+                      <p>{n.message}</p>
+                      <p className="text-[9px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleString("id-ID")}</p>
+                    </div>
+                  ))}
+                  {notifs.length === 0 && <p className="text-xs text-gray-400 text-center py-6" data-testid="relawan-notif-empty">Belum ada notifikasi.</p>}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* BOTTOM NAV */}
         <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center" data-testid="relawan-bottom-nav">

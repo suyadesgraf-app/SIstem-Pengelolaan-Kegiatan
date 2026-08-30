@@ -27,6 +27,16 @@ export default function AkunTab() {
     }
   };
 
+  const toggleActive = async (a) => {
+    try {
+      const r = await api.post(`/users/${a.id}/toggle-active`);
+      toast.success(r.data.is_active ? `Akun ${a.name} diaktifkan kembali` : `Akun ${a.name} dinonaktifkan`);
+      load();
+    } catch (e) {
+      toast.error(formatApiError(e));
+    }
+  };
+
   const inputCls = "w-full text-xs border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-emerald-500";
 
   return (
@@ -54,7 +64,9 @@ export default function AkunTab() {
               <th className="p-3">Nama</th>
               <th className="p-3">Email</th>
               <th className="p-3">Peran</th>
+              <th className="p-3">Status</th>
               <th className="p-3">Dibuat</th>
+              <th className="p-3 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
@@ -67,11 +79,25 @@ export default function AkunTab() {
                     {ROLE_LABELS[a.role] || a.role}
                   </span>
                 </td>
+                <td className="p-3">
+                  <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${a.is_active !== false ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`} data-testid={`akun-status-${a.email}`}>
+                    {a.is_active !== false ? "Aktif" : "Nonaktif"}
+                  </span>
+                </td>
                 <td className="p-3 text-gray-500">{a.created_at ? new Date(a.created_at).toLocaleDateString("id-ID") : "-"}</td>
+                <td className="p-3 text-center">
+                  <button
+                    data-testid={`akun-toggle-${a.email}`}
+                    onClick={() => toggleActive(a)}
+                    className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition ${a.is_active !== false ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"}`}
+                  >
+                    {a.is_active !== false ? "Nonaktifkan" : "Aktifkan"}
+                  </button>
+                </td>
               </tr>
             ))}
             {accounts.length === 0 && (
-              <tr><td colSpan="4" className="p-6 text-center text-gray-400" data-testid="akun-empty">Belum ada akun. Buat akun pertama di atas.</td></tr>
+              <tr><td colSpan="6" className="p-6 text-center text-gray-400" data-testid="akun-empty">Belum ada akun. Buat akun pertama di atas.</td></tr>
             )}
           </tbody>
         </table>

@@ -3,6 +3,7 @@ load_dotenv()
 
 import os
 import re
+import io
 import json
 import uuid
 import base64
@@ -70,6 +71,8 @@ async def get_current_user(request: Request):
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(401, "Pengguna tidak ditemukan")
+    if user.get("is_active") is False:
+        raise HTTPException(403, "Akun dinonaktifkan. Hubungi admin Anda.")
     return user
 
 
@@ -91,6 +94,8 @@ async def login(body: LoginIn, request: Request, response: Response):
         except ValueError:
             pass
     user = await db.users.find_one({"email": email})
+    if user and user.get("is_active") is False:
+        raise HTTPException(403, "Akun dinonaktifkan. Hubungi admin Anda.")
     if not user or not verify_password(body.password, user["password_hash"]):
         await db.login_attempts.update_one(
             {"identifier": identifier},
@@ -156,6 +161,33 @@ async def list_users(user=Depends(get_current_user)):
     return await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(500)
 
 
+@api.post("/users/{uid}/toggle-active")
+async def toggle_user_active(uid: str, user=Depends(get_current_user)):
+    target = await db.users.find_one({"id": uid})
+    if not target:
+        raise HTTPException(404, "Akun tidak ditemukan")
+    allowed = (user["role"] == "superadmin" and target["role"] in ("pic", "relawan")) or \
+              (user["role"] == "pic" and target.get("pic_id") == user["id"])
+    if not allowed:
+        raise HTTPException(403, "Anda tidak berhak mengubah akun ini")
+    new_state = not target.get("is_active", True)
+    await db.users.update_one({"id": uid}, {"$set": {"is_active": new_state}})
+    return {"is_active": new_state}
+
+
+# ---------- Notifikasi ----------
+
+@api.get("/notifications")
+async def list_notifications(user=Depends(get_current_user)):
+    return await db.notifications.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
+
+
+@api.post("/notifications/read-all")
+async def read_all_notifications(user=Depends(get_current_user)):
+    await db.notifications.update_many({"user_id": user["id"]}, {"$set": {"read": True}})
+    return {"ok": True}
+
+
 # ---------- Projects & Dashboard ----------
 
 @api.get("/")
@@ -180,7 +212,15 @@ async def list_projects(user=Depends(get_current_user)):
         query = {"created_by": user.get("pic_id") or "__none__"}
     else:
         query = {}
-    return await db.projects.find(query, {"_id": 0}).to_list(200)
+    projects = await db.projects.find(query, {"_id": 0}).to_list(200)
+    for p in projects:
+        p["progress"] = {
+            "kak": await db.kaks.count_documents({"project_id": p["id"]}),
+            "rab": await db.rab_items.count_documents({"project_id": p["id"]}),
+            "keuangan": await db.realisasi.count_documents({"project_id": p["id"]}),
+            "laporan": await db.reports.count_documents({"project_id": p["id"]}),
+        }
+    return projects
 
 
 class ProjectIn(BaseModel):
@@ -202,6 +242,16 @@ async def create_project(body: ProjectIn, user=Depends(get_current_user)):
            "tint": {**tint, "ini": body.name[:2].upper()}, "created_by": user["id"],
            "created_at": datetime.now(timezone.utc).isoformat()}
     await db.projects.insert_one(doc)
+    if user["role"] == "pic":
+        relawans = await db.users.find({"pic_id": user["id"], "role": "relawan", "is_active": {"$ne": False}}).to_list(500)
+        if relawans:
+            await db.notifications.insert_many([
+                {"id": str(uuid.uuid4()), "user_id": r["id"],
+                 "message": f"Kegiatan baru: {doc['name']} ({doc['nomor_indeks']})"
+                            + (f" di {doc['loc']}." if doc['loc'] else ".")
+                            + " Anda dapat mulai input laporan nota.",
+                 "read": False, "created_at": datetime.now(timezone.utc).isoformat()}
+                for r in relawans])
     doc.pop("_id", None)
     return doc
 
@@ -539,6 +589,151 @@ async def list_kaks(pid: str, user=Depends(get_current_user)):
 @api.get("/projects/{pid}/reports")
 async def list_reports(pid: str, user=Depends(get_current_user)):
     return await db.reports.find({"project_id": pid}, {"_id": 0}).sort("created_at", -1).to_list(50)
+
+
+# ---------- Ekspor Dokumen Nyata ----------
+
+def _rp(n):
+    return f"Rp {int(n or 0):,}".replace(",", ".")
+
+
+@api.get("/projects/{pid}/export/rab.xlsx")
+async def export_rab_xlsx(pid: str, user=Depends(get_current_user)):
+    project = await db.projects.find_one({"id": pid}, {"_id": 0})
+    if not project:
+        raise HTTPException(404, "Kegiatan tidak ditemukan")
+    items = await db.rab_items.find({"project_id": pid}, {"_id": 0}).to_list(1000)
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "RAB"
+    header_fill = PatternFill("solid", fgColor="047857")
+    white_bold = Font(bold=True, color="FFFFFF")
+    ws.append(["RENCANA ANGGARAN BIAYA (RAB)"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append([project["name"]])
+    ws["A2"].font = Font(bold=True)
+    ws.append([f"{project.get('nomor_indeks', '')}  •  {project.get('loc', '')}  •  {project.get('date', '')}"])
+    ws.append([])
+    ws.append(["No", "Kategori", "Uraian", "Qty", "Satuan Qty", "Frek", "Satuan Frek", "Harga Satuan", "Jumlah"])
+    for c in ws[5]:
+        c.font = white_bold
+        c.fill = header_fill
+    total = 0
+    for i, it in enumerate(items, 1):
+        jumlah = (it.get("qty", 0) or 0) * (it.get("frek", 0) or 0) * (it.get("harga", 0) or 0)
+        total += jumlah
+        ws.append([i, it.get("kategori", ""), it.get("uraian", ""), it.get("qty", 0), it.get("satuanQty", ""),
+                   it.get("frek", 0), it.get("satuanFrek", ""), it.get("harga", 0), jumlah])
+    ws.append(["", "", "", "", "", "", "", "JUMLAH TOTAL", total])
+    for c in ws[ws.max_row]:
+        c.font = white_bold
+        c.fill = header_fill
+    for col, w in zip("ABCDEFGHI", [6, 16, 34, 8, 12, 8, 12, 16, 18]):
+        ws.column_dimensions[col].width = w
+    buf = io.BytesIO()
+    wb.save(buf)
+    return Response(content=buf.getvalue(),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="RAB-{project.get("nomor_indeks", "doc")}.xlsx"'})
+
+
+@api.get("/projects/{pid}/export/rab.pdf")
+async def export_rab_pdf(pid: str, user=Depends(get_current_user)):
+    project = await db.projects.find_one({"id": pid}, {"_id": 0})
+    if not project:
+        raise HTTPException(404, "Kegiatan tidak ditemukan")
+    items = await db.rab_items.find({"project_id": pid}, {"_id": 0}).to_list(1000)
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=40, rightMargin=40, topMargin=40)
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph("BAZNAS BAZIS PROVINSI DKI JAKARTA", styles["Title"]),
+        Paragraph(f"RENCANA ANGGARAN BIAYA (RAB) — {project['name']}", styles["Heading2"]),
+        Paragraph(f"{project.get('nomor_indeks', '')} • {project.get('loc', '')} • {project.get('date', '')}", styles["Normal"]),
+        Spacer(1, 16),
+    ]
+    data = [["No", "Kategori", "Uraian", "Qty", "Satuan", "Frek", "Satuan", "Harga Satuan", "Jumlah"]]
+    total = 0
+    for i, it in enumerate(items, 1):
+        jumlah = (it.get("qty", 0) or 0) * (it.get("frek", 0) or 0) * (it.get("harga", 0) or 0)
+        total += jumlah
+        data.append([str(i), it.get("kategori", ""), it.get("uraian", ""), str(it.get("qty", 0)),
+                     it.get("satuanQty", ""), str(it.get("frek", 0)), it.get("satuanFrek", ""),
+                     _rp(it.get("harga", 0)), _rp(jumlah)])
+    data.append(["", "", "", "", "", "", "", "JUMLAH TOTAL", _rp(total)])
+    t = Table(data, colWidths=[25, 80, 180, 40, 55, 35, 55, 90, 100])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#047857")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f0fdf4")]),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#047857")),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+    ]))
+    story.append(t)
+    doc.build(story)
+    return Response(content=buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="RAB-{project.get("nomor_indeks", "doc")}.pdf"'})
+
+
+async def _latest_kak(pid: str):
+    kak = await db.kaks.find_one({"project_id": pid}, {"_id": 0}, sort=[("created_at", -1)])
+    if not kak:
+        raise HTTPException(404, "Generate KAK terlebih dahulu agar dokumen tersimpan")
+    return kak
+
+
+@api.get("/projects/{pid}/export/kak.pdf")
+async def export_kak_pdf(pid: str, user=Depends(get_current_user)):
+    kak = await _latest_kak(pid)
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=50, rightMargin=50, topMargin=50)
+    styles = getSampleStyleSheet()
+    body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, leading=14, spaceAfter=8)
+    story = [
+        Paragraph("BAZNAS BAZIS PROVINSI DKI JAKARTA", styles["Title"]),
+        Paragraph("KERANGKA ACUAN KEGIATAN (KAK)", styles["Heading2"]),
+        Paragraph(kak.get("title", ""), ParagraphStyle("t", parent=styles["Heading3"], textColor=colors.HexColor("#047857"))),
+        Spacer(1, 14),
+    ]
+    for s in kak.get("sections", []):
+        story.append(Paragraph(f"<b>{s.get('heading', '')}</b> {s.get('body', '')}", body_style))
+    doc.build(story)
+    return Response(content=buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="KAK-{pid[:8]}.pdf"'})
+
+
+@api.get("/projects/{pid}/export/kak.docx")
+async def export_kak_docx(pid: str, user=Depends(get_current_user)):
+    kak = await _latest_kak(pid)
+    from docx import Document
+    document = Document()
+    document.add_heading("BAZNAS BAZIS PROVINSI DKI JAKARTA", level=1)
+    document.add_heading("KERANGKA ACUAN KEGIATAN (KAK)", level=2)
+    document.add_heading(kak.get("title", ""), level=3)
+    for s in kak.get("sections", []):
+        document.add_heading(s.get("heading", ""), level=4)
+        document.add_paragraph(s.get("body", ""))
+    buf = io.BytesIO()
+    document.save(buf)
+    return Response(content=buf.getvalue(),
+                    media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f'attachment; filename="KAK-{pid[:8]}.docx"'})
 
 
 # ---------- Object Storage ----------

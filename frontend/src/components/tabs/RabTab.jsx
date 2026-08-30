@@ -80,9 +80,9 @@ export default function RabTab({ projectId = "" }) {
         </div>
         <div className="flex items-center space-x-2 flex-wrap gap-y-2">
           <span className="text-xs font-bold text-gray-500">Ekspor:</span>
-          <button data-testid="rab-export-pdf" onClick={() => toast.success("Ekspor RAB ke PDF Berhasil")} className="text-xs border border-gray-300 text-gray-700 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-lg font-semibold transition">PDF</button>
-          <button data-testid="rab-export-excel" onClick={() => toast.success("Ekspor RAB ke Excel Berhasil")} className="text-xs border border-gray-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg font-semibold transition">Excel</button>
-          <button data-testid="rab-export-spreadsheet" onClick={() => toast.success("Ekspor RAB ke Spreadsheet Berhasil")} className="text-xs border border-gray-300 text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-semibold transition">Spreadsheet</button>
+          <button data-testid="rab-export-pdf" onClick={() => window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${projectId}/export/rab.pdf`)} className="text-xs border border-gray-300 text-gray-700 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-lg font-semibold transition">PDF</button>
+          <button data-testid="rab-export-excel" onClick={() => window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${projectId}/export/rab.xlsx`)} className="text-xs border border-gray-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg font-semibold transition">Excel</button>
+          <button data-testid="rab-export-spreadsheet" onClick={() => { window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${projectId}/export/rab.xlsx`); toast.info("File Excel kompatibel dengan Google Sheets / Spreadsheet"); }} className="text-xs border border-gray-300 text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-semibold transition">Spreadsheet</button>
         </div>
       </div>
 

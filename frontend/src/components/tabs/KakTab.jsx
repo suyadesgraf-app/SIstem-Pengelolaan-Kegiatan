@@ -86,9 +86,9 @@ export default function KakTab({ project = null }) {
             >
               <Printer className="w-3.5 h-3.5" /><span>Cetak Dokumen</span>
             </button>
-            <button onClick={() => toast.success("Ekspor PDF Berhasil")} data-testid="kak-export-pdf" className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">PDF</button>
-            <button onClick={() => toast.success("Ekspor Word Berhasil")} data-testid="kak-export-word" className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">Word</button>
-            <button onClick={() => toast.success("Ekspor Google Doc Berhasil")} data-testid="kak-export-gdoc" className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">Google Doc</button>
+            <button onClick={() => { if (!project?.id || history.length === 0) return toast.warning("Generate KAK terlebih dahulu agar dokumen tersimpan"); window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${project.id}/export/kak.pdf`); }} data-testid="kak-export-pdf" className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">PDF</button>
+            <button onClick={() => { if (!project?.id || history.length === 0) return toast.warning("Generate KAK terlebih dahulu agar dokumen tersimpan"); window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${project.id}/export/kak.docx`); }} data-testid="kak-export-word" className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">Word</button>
+            <button onClick={() => toast.info("Unduh file Word lalu unggah ke Google Docs untuk berkolaborasi")} data-testid="kak-export-gdoc" className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">Google Doc</button>
           </div>
         </div>
       </div>

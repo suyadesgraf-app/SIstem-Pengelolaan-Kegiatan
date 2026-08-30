@@ -21,6 +21,12 @@
 - AI: emergentintegrations LlmChat (stream_message), EMERGENT_LLM_KEY di backend/.env
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 2) — Ekspor, Notifikasi, Progres, Nonaktif Akun
+- Ekspor dokumen nyata: RAB → Excel (.xlsx openpyxl, header emerald + total) dan PDF (reportlab landscape) ; KAK → PDF dan Word (.docx python-docx) dari versi KAK tersimpan terbaru; tombol Google Doc mengarahkan unduh Word; endpoint /api/projects/{pid}/export/{rab.xlsx|rab.pdf|kak.pdf|kak.docx}
+- Notifikasi relawan: PIC membuat kegiatan → semua relawan aktif milik PIC menerima notifikasi; lonceng + badge unread di header aplikasi relawan, panel bottom-sheet, tandai semua dibaca (koleksi notifications)
+- Progres perencanaan: setiap kartu kegiatan menampilkan checklist KAK/RAB/Keuangan/Laporan (✓ hijau jika ada isi, — abu jika belum), dihitung live per proyek di list_projects
+- Nonaktifkan akun: Super Admin dapat nonaktifkan/aktifkan PIC & relawan, PIC untuk relawannya; akun nonaktif ditolak saat login (403) dan saat pakai token lama
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026) — Alur Hierarki & Workspace Kegiatan
 - Alur lengkap sesuai permintaan: PIC input Kegiatan (tombol "Tambah Kegiatan" di dashboard) → kartu kegiatan bisa diklik membuka Workspace (/kegiatan/:id) berisi 4 sub-tab: KAK, RAB, Laporan Keuangan, Laporan Kegiatan — semua riwayat perencanaan tersimpan per kegiatan
 - Hierarki akun: Super Admin membuat akun PIC, PIC membuat akun Relawan (tab "Kelola Akun"); relawan tidak bisa membuat akun (403); email duplikat ditolak (409)
