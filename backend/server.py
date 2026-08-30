@@ -684,6 +684,18 @@ def parse_llm_json(raw: str):
     return json.loads(match.group(0))
 
 
+def raise_ai_http_error(err: Exception, action: str):
+    message = str(err).lower()
+    if "budget has been exceeded" in message or "max budget" in message:
+        raise HTTPException(
+            402,
+            "Saldo AI Universal Key habis. Tambahkan balance di Profile → Manage plan → Universal Key → Add Balance, atau aktifkan auto top up lalu coba generate lagi."
+        )
+    if "ratelimit" in message or "rate limit" in message:
+        raise HTTPException(429, "Layanan AI sedang membatasi permintaan. Tunggu sebentar lalu coba lagi.")
+    raise HTTPException(500, f"AI gagal {action}, coba lagi")
+
+
 class IdeaChatAttachmentIn(BaseModel):
     id: str
     filename: str = ""
@@ -756,7 +768,7 @@ async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_curren
         next_questions = data.get("next_questions") if isinstance(data.get("next_questions"), list) else []
     except Exception as e:
         logger.error(f"Idea chat error: {e}")
-        raise HTTPException(500, "AI gagal membantu menyusun ide, coba lagi")
+        raise_ai_http_error(e, "membantu menyusun ide")
     now = datetime.now(timezone.utc).isoformat()
     user_msg = {"id": str(uuid.uuid4()), "role": "user", "content": message, "attachments": attachments, "created_at": now}
     assistant_msg = {"id": str(uuid.uuid4()), "role": "assistant", "content": reply, "created_at": now,
@@ -790,6 +802,8 @@ async def ocr_nota(body: OcrIn, user=Depends(get_current_user)):
         return parse_llm_json(raw)
     except Exception as e:
         logger.error(f"OCR error: {e}")
+        if "budget has been exceeded" in str(e).lower() or "max budget" in str(e).lower():
+            raise_ai_http_error(e, "membaca nota")
         raise HTTPException(422, "AI tidak dapat membaca nota. Isi manual atau coba foto lebih jelas.")
 
 
@@ -823,7 +837,7 @@ async def generate_kak(body: KakIn, user=Depends(get_current_user)):
         return data
     except Exception as e:
         logger.error(f"KAK error: {e}")
-        raise HTTPException(500, "AI gagal menyusun KAK, coba lagi")
+        raise_ai_http_error(e, "menyusun KAK")
 
 
 class ReportIn(BaseModel):
@@ -856,7 +870,7 @@ async def generate_report(body: ReportIn, user=Depends(get_current_user)):
         return data
     except Exception as e:
         logger.error(f"Report error: {e}")
-        raise HTTPException(500, "AI gagal menyusun laporan, coba lagi")
+        raise_ai_http_error(e, "menyusun laporan")
 
 
 @api.get("/projects/{pid}/kaks")

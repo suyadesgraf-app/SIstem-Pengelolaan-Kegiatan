@@ -29,6 +29,12 @@
 - Rekomendasi pertanyaan AI kini dipisahkan dari bubble balasan dan ditampilkan sebagai daftar tombol putih ringkas berbingkai emerald agar teks panjang tetap mudah dibaca.
 - Preview KAK dan Laporan Kegiatan kini menangkap roda mouse/touchpad saat kursor berada di panel, dengan scroll lokal, overscroll tertahan, dan scrollbar tipis yang terlihat.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
+- Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
+- Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
+- Tab Laporan Kegiatan kini menyimpan dan menampilkan alert permanen `laporan-ai-error`, bukan hanya toast sementara, agar PIC tahu langkah pemulihan.
+- Catatan status: integrasi AI tetap NYATA dan tidak dimock; generate Laporan/KAK/OCR/Chat AI baru bisa berjalan lagi setelah saldo AI ditambah atau key AI diganti.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 7) — Chat Ide Otomatis Terbuka
 - Saat pengguna membuka sub-tab "Buat Ide Kegiatan", popup Chat AI kini langsung tampil otomatis tanpa perlu tombol "Buka Chat AI".
 - Tombol/menu pembuka chat dihapus agar alur ide lebih cepat dan ruang draft tetap bersih.
@@ -108,9 +114,10 @@
 - Sesi 10: Build frontend dan `py_compile` backend OK. Playwright login PIC → workspace → Chat Ide berhasil memverifikasi popup putih 300px serta pemilihan PDF. curl berhasil mengunggah lalu menghapus PDF uji; validasi API menolak referensi lampiran chat yang tidak sah (400).
 - Sesi 10 (penyempurnaan): Playwright memverifikasi rekomendasi pertanyaan tampil sebagai daftar tombol ringkas dan dapat dipilih dari popup Chat Ide.
 - Sesi 10 (preview dokumen): Playwright memverifikasi scroll lokal KAK berubah 0→960 dengan roda mouse. Untuk konten Laporan yang panjang, handler preview juga terverifikasi berubah 0→581; build frontend berhasil.
+- Sesi 11: py_compile backend OK, yarn build frontend OK. curl login PIC + POST `/api/ai/report` kini mengembalikan 402 dengan detail penyebab budget AI habis. Playwright login PIC → workspace → tab Laporan → generate menampilkan alert `laporan-ai-error` berisi instruksi tambah balance/auto top up.
 
 ## Backlog Prioritas
-- P0: Tidak ada blocker aktif pada alur utama saat ini.
+- P0: Pulihkan saldo Universal Key AI atau ganti key AI agar generate Laporan/KAK/OCR/Chat AI berjalan kembali.
 - P1: Notifikasi Nota Baru ke PIC saat relawan menyimpan nota.
 - P2: Offline queue PWA untuk blank spot, tanda tangan digital, filter/cari realisasi lanjutan, multi-kegiatan per RAB, opsi mobile native Expo/React Native di atas API yang sudah ada.
 - P2: Cetak Label Arsip PDF per kegiatan dengan QR code.

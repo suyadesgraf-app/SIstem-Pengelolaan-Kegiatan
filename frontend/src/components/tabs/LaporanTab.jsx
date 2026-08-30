@@ -24,6 +24,7 @@ export default function LaporanTab({ project = null }) {
   const [files, setFiles] = useState([]);
   const [activeLamp, setActiveLamp] = useState(null);
   const [replaceFileId, setReplaceFileId] = useState(null);
+  const [aiError, setAiError] = useState("");
   const kakFileRef = useRef(null);
   const lampFileRef = useRef(null);
   const replaceFileRef = useRef(null);
@@ -144,12 +145,15 @@ export default function LaporanTab({ project = null }) {
   const generate = async () => {
     if (!points.trim()) return toast.warning("Masukkan poin mentah lapangan terlebih dahulu");
     setLoading(true);
+    setAiError("");
     try {
       const r = await api.post("/ai/report", { nomor_indeks: nomorIndeks, points, kak_name: kakName, provider, project_id: project?.id });
       setDoc(r.data);
       toast.success(`Laporan AI berhasil dibuat (${provider === "gemini" ? "Gemini 3.1 Pro" : "GPT-5.4"})!`);
     } catch (e2) {
-      toast.error(formatApiError(e2));
+      const message = formatApiError(e2);
+      setAiError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -199,6 +203,11 @@ export default function LaporanTab({ project = null }) {
             <Sparkles className="w-4 h-4" />
             <span>{loading ? "Generating Laporan AI..." : "Generate Laporan dengan AI"}</span>
           </button>
+          {aiError && (
+            <p data-testid="laporan-ai-error" className="text-[11px] font-semibold text-rose-800 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 leading-relaxed">
+              {aiError}
+            </p>
+          )}
         </div>
 
         <div ref={previewRef} onWheel={handlePreviewWheel} className="document-scroll-area flex-1 bg-[#fcfcfc] border border-gray-200 rounded-xl p-6 relative h-[480px] overflow-y-auto overscroll-y-contain touch-pan-y font-doc text-xs text-gray-800 space-y-4 shadow-inner" data-testid="laporan-preview" aria-label="Pratinjau laporan kegiatan yang dapat digulir">
