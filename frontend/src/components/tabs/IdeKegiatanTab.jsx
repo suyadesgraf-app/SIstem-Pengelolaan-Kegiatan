@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Bot, CheckCircle2, ClipboardCheck, Lightbulb, Save, SendHorizonal, UserRound } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
@@ -24,6 +24,53 @@ const makeSessionId = () => {
   return `idea-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+const useEdgeAutoScroll = () => {
+  const containerRef = useRef(null);
+  const animationRef = useRef(null);
+  const speedRef = useRef(0);
+
+  const stopAutoScroll = useCallback(() => {
+    speedRef.current = 0;
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  }, []);
+
+  const moveAutoScroll = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || !speedRef.current) return stopAutoScroll();
+
+    const before = container.scrollTop;
+    container.scrollTop += speedRef.current;
+    const reachedEdge = before === container.scrollTop;
+    if (reachedEdge) return stopAutoScroll();
+    animationRef.current = requestAnimationFrame(moveAutoScroll);
+  }, [stopAutoScroll]);
+
+  const handleMouseMove = useCallback((event) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const edgeZone = Math.min(84, rect.height * 0.24);
+    const topDistance = event.clientY - rect.top;
+    const bottomDistance = rect.bottom - event.clientY;
+    let speed = 0;
+
+    if (topDistance < edgeZone) speed = -Math.max(2, ((edgeZone - topDistance) / edgeZone) * 12);
+    if (bottomDistance < edgeZone) speed = Math.max(2, ((edgeZone - bottomDistance) / edgeZone) * 12);
+
+    speedRef.current = speed;
+    if (speed && !animationRef.current) animationRef.current = requestAnimationFrame(moveAutoScroll);
+    if (!speed) stopAutoScroll();
+  }, [moveAutoScroll, stopAutoScroll]);
+
+  useEffect(() => stopAutoScroll, [stopAutoScroll]);
+
+  return { containerRef, onMouseMove: handleMouseMove, onMouseLeave: stopAutoScroll };
+};
+
 export const draftToKakText = (draft = {}) => FIELDS
   .filter(([key]) => draft[key])
   .map(([key, label], i) => `${i + 1}. ${label}: ${draft[key]}`)
@@ -38,6 +85,8 @@ export default function IdeKegiatanTab({ project }) {
   const [provider, setProvider] = useState("gemini");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const chatScroll = useEdgeAutoScroll();
+  const draftScroll = useEdgeAutoScroll();
 
   const greeting = useMemo(() => ({
     id: "greeting",
@@ -116,7 +165,14 @@ export default function IdeKegiatanTab({ project }) {
           </div>
           <ModelPicker value={provider} onChange={setProvider} kind="doc" compact />
         </div>
-        <div className="h-[460px] overflow-y-auto p-5 space-y-3 bg-gradient-to-b from-gray-50 to-white" data-testid="idea-chat-messages">
+        <div
+          ref={chatScroll.containerRef}
+          onMouseMove={chatScroll.onMouseMove}
+          onMouseLeave={chatScroll.onMouseLeave}
+          className="h-[460px] overflow-y-auto p-5 space-y-3 bg-gradient-to-b from-gray-50 to-white"
+          data-testid="idea-chat-messages"
+          aria-label="Pesan chat ide, arahkan kursor ke tepi atas atau bawah untuk gulir otomatis"
+        >
           {messages.map((m, i) => (
             <div key={m.id || i} data-testid={`idea-chat-message-${i}`} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               {m.role !== "user" && <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0"><Bot className="w-4 h-4" /></span>}
@@ -155,7 +211,14 @@ export default function IdeKegiatanTab({ project }) {
           </div>
           <span data-testid="idea-draft-status" className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${status === "submitted" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status === "submitted" ? "Sudah Disubmit" : "Draft"}</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto pr-1" data-testid="idea-draft-fields">
+        <div
+          ref={draftScroll.containerRef}
+          onMouseMove={draftScroll.onMouseMove}
+          onMouseLeave={draftScroll.onMouseLeave}
+          className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto pr-1"
+          data-testid="idea-draft-fields"
+          aria-label="Kolom draft ide, arahkan kursor ke tepi atas atau bawah untuk gulir otomatis"
+        >
           {FIELDS.map(([key, label, placeholder]) => (
             <label key={key} className={key.includes("notes") || key === "background" || key === "activity_format" ? "md:col-span-2" : ""} data-testid={`idea-draft-${key}-field`}>
               <span className="block text-[10px] font-bold text-gray-500 uppercase mb-1">{label}</span>

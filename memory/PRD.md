@@ -28,6 +28,10 @@
 - Tab RAB membaca Draft Ide submitted dan menyediakan tombol "Pakai untuk Form RAB"; tab KAK membaca Draft Ide submitted dan menyediakan tombol "Muat Draft Ide" ke textarea generate KAK.
 - Perbaikan hasil testing: brute-force login lockout memakai identifier email stabil agar tidak gagal di belakang ingress/proxy; seed user idempoten mengupdate password seeded bila berubah; CORS memakai origin eksplisit; dashboard chart diganti grafik CSS agar tidak ada warning Recharts.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 6) — Gulir Otomatis Ide Kegiatan
+- Panel Chat AI dan kolom Draft Ide kini mendukung gulir otomatis ke atas/bawah saat kursor diarahkan ke area tepi panel. Pengguna tidak perlu menarik scrollbar samping untuk membaca atau mengisi konten panjang.
+- Gulir otomatis berhenti saat kursor meninggalkan panel atau kembali ke bagian tengah sehingga tidak mengganggu proses membaca dan pengisian form.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 4) — Pesan Revisi & Edit/Batalkan Lampiran
 - Pesan revisi Pimpinan: tab Persetujuan kini memiliki kolom "Pesan Revisi" per kegiatan berstatus Menunggu; pesan dikirim ke endpoint /api/projects/{pid}/revise dan masuk ke notifikasi PIC sebagai poin perbaikan.
 - Backend revisi menyimpan revision_message, revision_requested_by, revision_requested_at, mengembalikan status kegiatan ke Perencanaan, dan membatasi pesan maksimal 1000 karakter.
@@ -77,5 +81,6 @@
 
 ## Backlog Prioritas
 - P0: Tidak ada blocker aktif pada alur utama saat ini.
-- P1: Notifikasi Nota Baru ke PIC saat relawan menyimpan nota; Cetak Label Arsip PDF per kegiatan dengan QR code.
+- P1: Notifikasi Nota Baru ke PIC saat relawan menyimpan nota.
 - P2: Offline queue PWA untuk blank spot, tanda tangan digital, filter/cari realisasi lanjutan, multi-kegiatan per RAB, opsi mobile native Expo/React Native di atas API yang sudah ada.
+- P2: Cetak Label Arsip PDF per kegiatan dengan QR code.
