@@ -1,7 +1,32 @@
-import { LayoutDashboard, FolderOpen, LogOut } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { LayoutDashboard, FolderOpen, LogOut, Bell } from "lucide-react";
 import { toast } from "sonner";
+import api from "@/lib/api";
 
 export default function Header({ user, onLogout }) {
+  const [notifs, setNotifs] = useState([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const notifRef = useRef(null);
+  const unread = notifs.filter((n) => !n.read).length;
+
+  const loadNotifs = () => api.get("/notifications").then((r) => setNotifs(r.data)).catch(() => {});
+  useEffect(() => {
+    loadNotifs();
+    const t = setInterval(loadNotifs, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const close = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifs(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const readAll = async () => {
+    await api.post("/notifications/read-all").catch(() => {});
+    loadNotifs();
+  };
+
   return (
     <header className="bg-white/85 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 no-print" data-testid="app-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -35,6 +60,35 @@ export default function Header({ user, onLogout }) {
               <FolderOpen className="w-4 h-4" />
               <span>Daftar Kegiatan</span>
             </button>
+            <div className="relative" ref={notifRef}>
+              <button
+                data-testid="header-notif-bell"
+                onClick={() => setShowNotifs(!showNotifs)}
+                className="relative p-2 rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-emerald-700"
+              >
+                <Bell className="w-4 h-4" />
+                {unread > 0 && (
+                  <span data-testid="header-notif-badge" className="absolute -top-0.5 -right-0.5 bg-amber-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">{unread}</span>
+                )}
+              </button>
+              {showNotifs && (
+                <div className="absolute right-0 top-11 w-80 bg-white rounded-2xl border border-gray-200 shadow-xl z-50 p-4" data-testid="header-notif-panel">
+                  <div className="flex justify-between items-center mb-3">
+                    <p className="font-heading font-bold text-sm text-gray-800">Notifikasi</p>
+                    <button data-testid="header-notif-read-all" onClick={readAll} className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900">Tandai semua dibaca</button>
+                  </div>
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {notifs.map((n) => (
+                      <div key={n.id} data-testid={`header-notif-${n.id}`} className={`rounded-xl border p-3 text-xs leading-relaxed ${n.read ? "border-gray-100 bg-gray-50 text-gray-500" : "border-emerald-200 bg-emerald-50 text-gray-800 font-medium"}`}>
+                        <p>{n.message}</p>
+                        <p className="text-[9px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleString("id-ID")}</p>
+                      </div>
+                    ))}
+                    {notifs.length === 0 && <p className="text-xs text-gray-400 text-center py-4" data-testid="header-notif-empty">Belum ada notifikasi.</p>}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="flex items-center space-x-2 bg-emerald-700 text-white px-4 py-2 rounded-full" data-testid="nav-user-badge">
               <span className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-[10px] font-bold">
                 {user.name?.charAt(0) || "U"}

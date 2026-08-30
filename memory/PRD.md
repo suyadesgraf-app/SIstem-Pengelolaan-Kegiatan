@@ -21,6 +21,12 @@
 - AI: emergentintegrations LlmChat (stream_message), EMERGENT_LLM_KEY di backend/.env
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 3) — Ekspor LPJ, Notif Persetujuan, Galeri, Paket PDF
+- Ekspor Laporan Kegiatan (LPJ): PDF & Word dari versi tersimpan terbaru + tombol Google Doc (panduan unggah Word); endpoint /export/report.pdf & report.docx
+- Notifikasi persetujuan: Sahkan → notif "DISAHKAN oleh ..." ke PIC pemilik kegiatan; tombol baru "Minta Revisi" di Persetujuan → status kembali Perencanaan + notif revisi ke PIC; lonceng notifikasi dengan badge & panel kini juga ada di header web (Dashboard & Workspace, polling 30 detik)
+- Galeri Lampiran: daftar file terunggah per laporan tampil di tab Laporan Kegiatan dengan tombol "Lihat / Unduh" (metadata nama, label, ukuran)
+- Ringkasan Cetak Kegiatan: tombol "Unduh Paket PDF" di header workspace — satu PDF berisi Bagian I KAK, II RAB (tabel + total), III Laporan Keuangan (tabel + total), IV Laporan Kegiatan (jika ada)
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 2) — Ekspor, Notifikasi, Progres, Nonaktif Akun
 - Ekspor dokumen nyata: RAB → Excel (.xlsx openpyxl, header emerald + total) dan PDF (reportlab landscape) ; KAK → PDF dan Word (.docx python-docx) dari versi KAK tersimpan terbaru; tombol Google Doc mengarahkan unduh Word; endpoint /api/projects/{pid}/export/{rab.xlsx|rab.pdf|kak.pdf|kak.docx}
 - Notifikasi relawan: PIC membuat kegiatan → semua relawan aktif milik PIC menerima notifikasi; lonceng + badge unread di header aplikasi relawan, panel bottom-sheet, tandai semua dibaca (koleksi notifications)

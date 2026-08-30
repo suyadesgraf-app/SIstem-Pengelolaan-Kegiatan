@@ -21,6 +21,7 @@ export default function LaporanTab({ project = null }) {
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [uploaded, setUploaded] = useState({});
+  const [files, setFiles] = useState([]);
   const [activeLamp, setActiveLamp] = useState(null);
   const kakFileRef = useRef(null);
   const lampFileRef = useRef(null);
@@ -44,6 +45,7 @@ export default function LaporanTab({ project = null }) {
           if (idx >= 0) up[idx] = true;
         }
       });
+      setFiles(r.data);
       setUploaded(up);
       setKakName(kak);
     }).catch(() => {});
@@ -52,10 +54,11 @@ export default function LaporanTab({ project = null }) {
   const uploadFile = async (file, kind, label) => {
     const fd = new FormData();
     fd.append("file", file);
-    await api.post(
+    const r = await api.post(
       `/files/upload?kind=${kind}&label=${encodeURIComponent(label)}&ref=${encodeURIComponent(nomorIndeks)}`,
       fd
     );
+    return r.data;
   };
 
   const uploadKak = async (e) => {
@@ -63,7 +66,8 @@ export default function LaporanTab({ project = null }) {
     e.target.value = "";
     if (!file) return;
     try {
-      await uploadFile(file, "kak_ref", "KAK TTD");
+      const rec = await uploadFile(file, "kak_ref", "KAK TTD");
+      setFiles((f) => [rec, ...f]);
       setKakName(file.name);
       toast.success("KAK bertandatangan berhasil di-upload sebagai referensi");
     } catch (e2) { toast.error(formatApiError(e2)); }
@@ -79,7 +83,8 @@ export default function LaporanTab({ project = null }) {
     e.target.value = "";
     if (!file || activeLamp === null) return;
     try {
-      await uploadFile(file, "lampiran", LAMPIRAN[activeLamp]);
+      const rec = await uploadFile(file, "lampiran", LAMPIRAN[activeLamp]);
+      setFiles((f) => [rec, ...f]);
       setUploaded({ ...uploaded, [activeLamp]: true });
       toast.success(`Lampiran "${LAMPIRAN[activeLamp]}" terunggah ke penyimpanan`);
     } catch (e2) { toast.error(formatApiError(e2)); }
@@ -168,8 +173,29 @@ export default function LaporanTab({ project = null }) {
         </div>
       </div>
 
+      <div className="bg-white px-6 py-4 rounded-2xl border border-gray-200 shadow-sm flex justify-between items-center flex-wrap gap-2">
+        <span className="text-xs font-bold text-gray-500">Ekspor Laporan Kegiatan:</span>
+        <div className="flex space-x-2 flex-wrap gap-y-2">
+          <button data-testid="laporan-export-pdf" onClick={() => { if (!doc) return toast.warning("Generate laporan terlebih dahulu agar dokumen tersimpan"); window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${project.id}/export/report.pdf`); }} className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">PDF</button>
+          <button data-testid="laporan-export-word" onClick={() => { if (!doc) return toast.warning("Generate laporan terlebih dahulu agar dokumen tersimpan"); window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${project.id}/export/report.docx`); }} className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">Word</button>
+          <button data-testid="laporan-export-gdoc" onClick={() => toast.info("Unduh file Word lalu unggah ke Google Docs untuk berkolaborasi")} className="text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium">Google Doc</button>
+        </div>
+      </div>
+
       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <h3 className="font-heading font-bold text-gray-800 text-sm mb-4">Lampiran Wajib & Pendukung Kegiatan</h3>
+        {files.length > 0 && (
+          <div className="mb-5 space-y-2" data-testid="lampiran-gallery">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">File Terunggah ({files.length})</p>
+            {files.map((f) => (
+              <div key={f.id} className="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-2.5 gap-3 flex-wrap" data-testid={`lampiran-file-${f.id}`}>
+                <span className="text-xs text-gray-700 font-medium truncate max-w-[240px]">{f.original_filename}</span>
+                <span className="text-[9px] text-gray-400 whitespace-nowrap">{f.label || f.kind} • {(f.size / 1024).toFixed(0)} KB</span>
+                <button onClick={() => window.open(`${process.env.REACT_APP_BACKEND_URL}/api/files/${f.id}/download`)} data-testid={`lampiran-view-${f.id}`} className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition whitespace-nowrap">Lihat / Unduh</button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6" data-testid="lampiran-list">
           {LAMPIRAN.map((l, i) => (
             <div key={i} className="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3">

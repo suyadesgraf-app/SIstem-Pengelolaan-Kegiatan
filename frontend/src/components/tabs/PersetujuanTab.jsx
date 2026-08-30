@@ -25,6 +25,16 @@ export default function PersetujuanTab() {
     }
   };
 
+  const revise = async (p) => {
+    try {
+      await api.post(`/projects/${p.id}/revise`);
+      toast.success("Dikembalikan untuk revisi. PIC telah diberi tahu.");
+      load();
+    } catch (e) {
+      toast.error(formatApiError(e));
+    }
+  };
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm" data-testid="persetujuan-tab">
       <h2 className="font-heading text-lg font-bold text-gray-800 mb-4">Antrean Persetujuan Laporan (Approval Flow)</h2>
@@ -50,13 +60,22 @@ export default function PersetujuanTab() {
                 </td>
                 <td className="p-4 text-center">
                   {p.status === "Menunggu" ? (
-                    <button
-                      data-testid={`approval-approve-${p.nomor_indeks}`}
-                      onClick={() => approve(p)}
-                      className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition"
-                    >
-                      Sahkan Dokumen
-                    </button>
+                    <span className="inline-flex space-x-2">
+                      <button
+                        data-testid={`approval-approve-${p.nomor_indeks}`}
+                        onClick={() => approve(p)}
+                        className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition"
+                      >
+                        Sahkan Dokumen
+                      </button>
+                      <button
+                        data-testid={`approval-revise-${p.nomor_indeks}`}
+                        onClick={() => revise(p)}
+                        className="bg-amber-100 hover:bg-amber-200 active:scale-95 text-amber-800 text-xs px-3 py-1.5 rounded-lg font-semibold transition"
+                      >
+                        Minta Revisi
+                      </button>
+                    </span>
                   ) : (
                     <span className="text-xs text-gray-400">Tidak ada aksi</span>
                   )}

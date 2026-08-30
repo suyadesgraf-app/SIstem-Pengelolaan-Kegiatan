@@ -287,6 +287,28 @@ async def approve_project(pid: str, user=Depends(get_current_user)):
     res = await db.projects.update_one({"id": pid}, {"$set": {"status": "Diverifikasi", "slaDays": 0}})
     if res.matched_count == 0:
         raise HTTPException(404, "Kegiatan tidak ditemukan")
+    project = await db.projects.find_one({"id": pid})
+    if project and project.get("created_by") and project["created_by"] != user["id"]:
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()), "user_id": project["created_by"],
+            "message": f"Laporan kegiatan \"{project['name']}\" ({project['nomor_indeks']}) telah DISAHKAN oleh {user['name']}.",
+            "read": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"ok": True}
+
+
+@api.post("/projects/{pid}/revise")
+async def revise_project(pid: str, user=Depends(get_current_user)):
+    if user["role"] not in ("superadmin", "pic"):
+        raise HTTPException(403, "Hanya Pimpinan/PIC yang dapat meminta revisi")
+    res = await db.projects.update_one({"id": pid}, {"$set": {"status": "Perencanaan", "slaDays": 0}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Kegiatan tidak ditemukan")
+    project = await db.projects.find_one({"id": pid})
+    if project and project.get("created_by") and project["created_by"] != user["id"]:
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()), "user_id": project["created_by"],
+            "message": f"Laporan kegiatan \"{project['name']}\" ({project['nomor_indeks']}) PERLU REVISI. Silakan perbarui dokumen lalu submit ulang.",
+            "read": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return {"ok": True}
 
 
@@ -734,6 +756,146 @@ async def export_kak_docx(pid: str, user=Depends(get_current_user)):
     return Response(content=buf.getvalue(),
                     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": f'attachment; filename="KAK-{pid[:8]}.docx"'})
+
+
+async def _latest_report(pid: str):
+    rep = await db.reports.find_one({"project_id": pid}, {"_id": 0}, sort=[("created_at", -1)])
+    if not rep:
+        raise HTTPException(404, "Generate laporan terlebih dahulu agar dokumen tersimpan")
+    return rep
+
+
+@api.get("/projects/{pid}/export/report.pdf")
+async def export_report_pdf(pid: str, user=Depends(get_current_user)):
+    rep = await _latest_report(pid)
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=50, rightMargin=50, topMargin=50)
+    styles = getSampleStyleSheet()
+    body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, leading=14, spaceAfter=8)
+    story = [
+        Paragraph("BAZNAS BAZIS PROVINSI DKI JAKARTA", styles["Title"]),
+        Paragraph(rep.get("title", "LAPORAN PERTANGGUNGJAWABAN"), styles["Heading2"]),
+        Paragraph(rep.get("nomor_indeks", ""), ParagraphStyle("n", parent=styles["Heading3"], textColor=colors.HexColor("#047857"))),
+        Spacer(1, 14),
+    ]
+    for s in rep.get("sections", []):
+        story.append(Paragraph(f"<b>{s.get('heading', '')}</b> {s.get('body', '')}", body_style))
+    doc.build(story)
+    return Response(content=buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="LPJ-{rep.get("nomor_indeks", pid[:8])}.pdf"'})
+
+
+@api.get("/projects/{pid}/export/report.docx")
+async def export_report_docx(pid: str, user=Depends(get_current_user)):
+    rep = await _latest_report(pid)
+    from docx import Document
+    document = Document()
+    document.add_heading("BAZNAS BAZIS PROVINSI DKI JAKARTA", level=1)
+    document.add_heading(rep.get("title", "LAPORAN PERTANGGUNGJAWABAN"), level=2)
+    document.add_heading(rep.get("nomor_indeks", ""), level=3)
+    for s in rep.get("sections", []):
+        document.add_heading(s.get("heading", ""), level=4)
+        document.add_paragraph(s.get("body", ""))
+    buf = io.BytesIO()
+    document.save(buf)
+    return Response(content=buf.getvalue(),
+                    media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f'attachment; filename="LPJ-{rep.get("nomor_indeks", pid[:8])}.docx"'})
+
+
+def _doc_table_style():
+    from reportlab.lib.styles import getSampleStyleSheet  # noqa
+    from reportlab.platypus import TableStyle
+    from reportlab.lib import colors
+    return TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#047857")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f0fdf4")]),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#047857")),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (-2, 1), (-1, -1), "RIGHT"),
+    ])
+
+
+@api.get("/projects/{pid}/export/paket.pdf")
+async def export_paket_pdf(pid: str, user=Depends(get_current_user)):
+    project = await db.projects.find_one({"id": pid}, {"_id": 0})
+    if not project:
+        raise HTTPException(404, "Kegiatan tidak ditemukan")
+    kak = await db.kaks.find_one({"project_id": pid}, {"_id": 0}, sort=[("created_at", -1)])
+    rab = await db.rab_items.find({"project_id": pid}, {"_id": 0}).to_list(1000)
+    realisasi = await db.realisasi.find({"project_id": pid}, {"_id": 0, "nota_image": 0}).to_list(1000)
+    report = await db.reports.find_one({"project_id": pid}, {"_id": 0}, sort=[("created_at", -1)])
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=50, rightMargin=50, topMargin=50)
+    styles = getSampleStyleSheet()
+    body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, leading=14, spaceAfter=6)
+    story = [
+        Paragraph("BAZNAS BAZIS PROVINSI DKI JAKARTA", styles["Title"]),
+        Paragraph("PAKET DOKUMEN KEGIATAN", styles["Heading2"]),
+        Paragraph(project["name"], styles["Heading3"]),
+        Paragraph(f"{project.get('nomor_indeks', '')} • {project.get('loc', '')} • {project.get('date', '')} • Status: {project.get('status', '')}", body),
+        Spacer(1, 10),
+        Paragraph("BAGIAN I — KERANGKA ACUAN KEGIATAN (KAK)", styles["Heading2"]),
+    ]
+    if kak:
+        story.append(Paragraph(kak.get("title", ""), styles["Heading3"]))
+        for s in kak.get("sections", []):
+            story.append(Paragraph(f"<b>{s.get('heading', '')}</b> {s.get('body', '')}", body))
+    else:
+        story.append(Paragraph("KAK belum dibuat.", body))
+    story.append(PageBreak())
+    story.append(Paragraph("BAGIAN II — RENCANA ANGGARAN BIAYA (RAB)", styles["Heading2"]))
+    if rab:
+        data = [["No", "Kategori", "Uraian", "Qty", "Frek", "Harga Satuan", "Jumlah"]]
+        total = 0
+        for i, it in enumerate(rab, 1):
+            j = (it.get("qty", 0) or 0) * (it.get("frek", 0) or 0) * (it.get("harga", 0) or 0)
+            total += j
+            data.append([str(i), it.get("kategori", ""), it.get("uraian", ""),
+                         f"{it.get('qty', 0)} {it.get('satuanQty', '')}", f"{it.get('frek', 0)} {it.get('satuanFrek', '')}",
+                         _rp(it.get("harga", 0)), _rp(j)])
+        data.append(["", "", "", "", "", "JUMLAH TOTAL", _rp(total)])
+        t = Table(data, colWidths=[25, 70, 150, 55, 55, 80, 85])
+        t.setStyle(_doc_table_style())
+        story.append(t)
+    else:
+        story.append(Paragraph("RAB belum diisi.", body))
+    story.append(PageBreak())
+    story.append(Paragraph("BAGIAN III — LAPORAN KEUANGAN (REALISASI NOTA)", styles["Heading2"]))
+    if realisasi:
+        data = [["No", "Tanggal", "Nama Barang/Jasa", "Nominal", "Dibuat Oleh"]]
+        total_r = 0
+        for i, it in enumerate(realisasi, 1):
+            total_r += it.get("nominal", 0) or 0
+            data.append([str(i), it.get("tanggal", ""), it.get("merchant", ""), _rp(it.get("nominal", 0)), it.get("uploader", "")])
+        data.append(["", "", "TOTAL", _rp(total_r), ""])
+        t = Table(data, colWidths=[25, 80, 180, 100, 105])
+        t.setStyle(_doc_table_style())
+        story.append(t)
+    else:
+        story.append(Paragraph("Belum ada laporan keuangan dari relawan.", body))
+    if report:
+        story.append(PageBreak())
+        story.append(Paragraph("BAGIAN IV — LAPORAN KEGIATAN", styles["Heading2"]))
+        story.append(Paragraph(report.get("title", ""), styles["Heading3"]))
+        for s in report.get("sections", []):
+            story.append(Paragraph(f"<b>{s.get('heading', '')}</b> {s.get('body', '')}", body))
+    doc.build(story)
+    return Response(content=buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="Paket-{project.get("nomor_indeks", pid[:8])}.pdf"'})
 
 
 # ---------- Object Storage ----------

@@ -70,9 +70,18 @@ export default function KegiatanWorkspace() {
                   <p className="text-xs text-gray-500 mt-1">{project.nomor_indeks} • {project.loc} • {project.date}</p>
                 </div>
               </div>
-              <div className="text-left md:text-right">
-                <p className="text-[10px] font-bold text-gray-400 uppercase">Plafon Anggaran</p>
-                <p className="font-heading font-extrabold text-emerald-700">Rp {project.plafon} Jt</p>
+              <div className="flex items-center space-x-4">
+                <div className="text-left md:text-right">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Plafon Anggaran</p>
+                  <p className="font-heading font-extrabold text-emerald-700">Rp {project.plafon} Jt</p>
+                </div>
+                <button
+                  data-testid="workspace-export-paket"
+                  onClick={() => window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${project.id}/export/paket.pdf`)}
+                  className="bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition whitespace-nowrap"
+                >
+                  Unduh Paket PDF
+                </button>
               </div>
             </div>
 
