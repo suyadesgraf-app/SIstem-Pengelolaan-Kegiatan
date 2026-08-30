@@ -1,15 +1,26 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import Header from "@/components/Header";
 import IdeKegiatanTab from "@/components/tabs/IdeKegiatanTab";
 import KakTab from "@/components/tabs/KakTab";
 import RabTab from "@/components/tabs/RabTab";
 import KeuanganTab from "@/components/tabs/KeuanganTab";
 import LaporanTab from "@/components/tabs/LaporanTab";
-import api from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const STATUS_STYLE = {
   Selesai: "bg-emerald-100 text-emerald-800",
@@ -33,6 +44,9 @@ export default function KegiatanWorkspace() {
   const [project, setProject] = useState(null);
   const [sub, setSub] = useState("ide");
   const [notFound, setNotFound] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const canDeleteProject = user.role === "pic" || user.role === "superadmin";
 
   useEffect(() => {
     api.get("/projects").then((r) => {
@@ -42,6 +56,20 @@ export default function KegiatanWorkspace() {
   }, [id]);
 
   const handleLogout = async () => { await logout(); navigate("/login"); };
+
+  const handleDeleteProject = async () => {
+    if (!project || deleting) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/projects/${project.id}`);
+      toast.success("Kegiatan berhasil dihapus");
+      navigate("/");
+    } catch (e) {
+      toast.error(formatApiError(e));
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-appbg text-gray-800 antialiased" data-testid="kegiatan-workspace">
@@ -84,8 +112,46 @@ export default function KegiatanWorkspace() {
                 >
                   Unduh Paket PDF
                 </button>
+                {canDeleteProject && (
+                  <button
+                    data-testid="workspace-delete-project-button"
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    title="Hapus kegiatan"
+                    aria-label="Hapus kegiatan"
+                    className="w-10 h-10 rounded-xl border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 active:scale-95 transition flex items-center justify-center disabled:opacity-60"
+                    disabled={deleting}
+                  >
+                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  </button>
+                )}
               </div>
             </div>
+
+            <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+              <AlertDialogContent data-testid="delete-project-confirm-dialog">
+                <AlertDialogHeader>
+                  <AlertDialogTitle data-testid="delete-project-confirm-title">Hapus kegiatan ini?</AlertDialogTitle>
+                  <AlertDialogDescription data-testid="delete-project-confirm-description">
+                    Data ide kegiatan, RAB, KAK, laporan keuangan, laporan kegiatan, nota, dan lampiran terkait akan dihapus dari daftar aplikasi.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel data-testid="delete-project-cancel-button" disabled={deleting}>Batal</AlertDialogCancel>
+                  <AlertDialogAction
+                    data-testid="delete-project-confirm-button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      handleDeleteProject();
+                    }}
+                    disabled={deleting}
+                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                  >
+                    {deleting ? "Menghapus..." : "Hapus"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <div className="bg-white rounded-2xl border border-gray-200 p-2 shadow-sm flex space-x-1 overflow-x-auto" data-testid="workspace-subtabs">
               {SUBTABS.map((t) => (

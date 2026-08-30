@@ -39,6 +39,12 @@
 - Daftar Kegiatan dilengkapi pencarian nama/nomor indeks/lokasi/tanggal/status dan kartu kegiatan reusable agar tampilan dashboard serta arsip selesai tetap konsisten.
 - Verifikasi frontend berhasil: `yarn build` sukses; Playwright memastikan menu muncul kembali, Dashboard tidak memuat status selesai, dan Daftar Kegiatan hanya memuat status `Selesai`/`Diverifikasi`.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 18) — Hapus Kegiatan
+- PIC/Admin dan Super Admin kini dapat menghapus kegiatan dari header workspace memakai tombol ikon tempat sampah tanpa teks.
+- Backend memiliki endpoint `DELETE /api/projects/{pid}` dengan akses terbatas: Super Admin dapat menghapus semua kegiatan, PIC/Admin hanya kegiatan miliknya, Relawan ditolak.
+- Penghapusan membersihkan data terkait di MongoDB: ide kegiatan, RAB, KAK, laporan, realisasi/nota, serta menandai lampiran terkait sebagai `is_deleted`.
+- Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, curl hapus sebagai PIC OK, curl hapus sebagai Super Admin OK, dan Playwright memastikan ikon hapus + dialog konfirmasi tampil di workspace.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
@@ -151,6 +157,7 @@
 
 ## Backlog Prioritas
 - P0 (SELESAI): Fungsi AI pulih via fallback Universal Key untuk Gemini. Saat GEMINI_API_KEY pengguna aktif, set GEMINI_USE_EMERGENT_FALLBACK=False.
+- P0 (SELESAI): Fitur hapus kegiatan untuk PIC/Admin dan Super Admin.
 - P1: Notifikasi Nota Baru ke PIC saat relawan menyimpan nota.
 - P2: Offline queue PWA untuk blank spot, tanda tangan digital, filter/cari realisasi lanjutan, multi-kegiatan per RAB, opsi mobile native Expo/React Native di atas API yang sudah ada.
 - P2: Cetak Label Arsip PDF per kegiatan dengan QR code.

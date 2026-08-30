@@ -273,6 +273,27 @@ async def ensure_project_access(pid: str, user: dict):
     return project
 
 
+@api.delete("/projects/{pid}")
+async def delete_project(pid: str, user=Depends(get_current_user)):
+    if user["role"] not in ("superadmin", "pic"):
+        raise HTTPException(403, "Hanya PIC/Admin atau Super Admin yang dapat menghapus kegiatan")
+    project = await ensure_project_access(pid, user)
+    deleted = {
+        "projects": (await db.projects.delete_one({"id": pid})).deleted_count,
+        "activity_ideas": (await db.activity_ideas.delete_many({"project_id": pid})).deleted_count,
+        "rab_items": (await db.rab_items.delete_many({"project_id": pid})).deleted_count,
+        "kaks": (await db.kaks.delete_many({"project_id": pid})).deleted_count,
+        "reports": (await db.reports.delete_many({"project_id": pid})).deleted_count,
+        "realisasi": (await db.realisasi.delete_many({"project_id": pid})).deleted_count,
+    }
+    files_res = await db.files.update_many(
+        {"ref": {"$in": [pid, project.get("nomor_indeks", "")]}, "is_deleted": False},
+        {"$set": {"is_deleted": True, "deleted_by": user["id"], "deleted_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    deleted["files"] = files_res.modified_count
+    return {"ok": True, "deleted": deleted, "project_id": pid}
+
+
 IDEA_DRAFT_FIELDS = {
     "title": "",
     "background": "",
