@@ -38,6 +38,7 @@ export default function IdeKegiatanTab({ project }) {
   const [provider, setProvider] = useState("gemini");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [chatMinimized, setChatMinimized] = useState(false);
   const [chatPosition, setChatPosition] = useState({ x: 0, y: 0 });
 
   const greeting = useMemo(() => ({
@@ -104,6 +105,9 @@ export default function IdeKegiatanTab({ project }) {
     finally { setSaving(false); }
   };
 
+  const restoreChat = () => setChatMinimized(false);
+  const minimizeChat = () => setChatMinimized(true);
+
   return (
     <div className="relative" data-testid="ide-kegiatan-tab">
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5" data-testid="idea-draft-panel">
@@ -136,7 +140,8 @@ export default function IdeKegiatanTab({ project }) {
           </button>
         </div>
       </section>
-      <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} loading={loading} onSend={sendMessage} position={chatPosition} setPosition={setChatPosition} />
+      {!chatMinimized && <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} loading={loading} onSend={sendMessage} onMinimize={minimizeChat} position={chatPosition} setPosition={setChatPosition} />}
+      {chatMinimized && <button data-testid="idea-chat-restore-button" onClick={restoreChat} className="fixed bottom-5 right-5 z-[110] inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-800 active:scale-95"><span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-200" />Chat AI Ide Kegiatan</button>}
     </div>
   );
 }

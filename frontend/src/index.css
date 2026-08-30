@@ -115,6 +115,10 @@ body {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.chat-scroll-area { scrollbar-width: thin; scrollbar-color: #94a3b8 transparent; }
+.chat-scroll-area::-webkit-scrollbar { width: 8px; }
+.chat-scroll-area::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 9999px; }
+.chat-scroll-area::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
 .chart-container { position: relative; width: 100%; min-width: 240px; height: 280px; min-height: 280px; }
 
