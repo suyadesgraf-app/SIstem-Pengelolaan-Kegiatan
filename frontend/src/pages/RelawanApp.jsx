@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -24,15 +24,15 @@ export default function RelawanApp() {
   const [showNotifs, setShowNotifs] = useState(false);
   const fileRef = useRef(null);
 
-  const loadNotifs = () => api.get("/notifications").then((r) => setNotifs(r.data)).catch(() => {});
+  const loadNotifs = useCallback(() => api.get("/notifications").then((r) => setNotifs(r.data)).catch(() => {}), []);
   const unread = notifs.filter((n) => !n.read).length;
 
-  const load = () => {
+  const load = useCallback(() => {
     api.get("/realisasi?mine=true").then((r) => setItems(r.data)).catch(() => {});
     api.get("/projects").then((r) => setProjects(r.data)).catch(() => {});
     loadNotifs();
-  };
-  useEffect(() => { load(); }, []);
+  }, [loadNotifs]);
+  useEffect(() => { load(); }, [load]);
 
   const totalNominal = items.reduce((s, it) => s + (it.nominal || 0), 0);
 
@@ -53,6 +53,7 @@ export default function RelawanApp() {
         nominal: r.data.nominal ? String(r.data.nominal) : "",
         tanggal: r.data.tanggal || "",
         kegiatan: form.kegiatan,
+        projectId: form.projectId,
       });
       toast.success("AI berhasil membaca nota");
     } catch (e2) {

@@ -15,11 +15,18 @@
 - Relawan Lapangan: input realisasi nota keuangan via scan foto + OCR AI
 
 ## Arsitektur
-- Frontend: React + Tailwind + framer-motion + lenis + recharts (port 3000)
+- Frontend: React + Tailwind + framer-motion + lenis + grafik CSS stabil (port 3000)
 - Backend: FastAPI (port 8001, prefix /api), JWT httpOnly cookie + Bearer
-- DB: MongoDB (users, projects, rab_items, realisasi, login_attempts)
+- DB: MongoDB (users, projects, activity_ideas, rab_items, realisasi, login_attempts)
 - AI: emergentintegrations LlmChat (stream_message), EMERGENT_LLM_KEY di backend/.env
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
+
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 5) — Alur Ide Kegiatan dengan Chat AI
+- Alur workspace diperbarui menjadi: Buat Ide Kegiatan → RAB → KAK → Laporan Keuangan → Laporan Kegiatan.
+- Tab "Buat Ide Kegiatan" memiliki Chat AI multi-turn di kiri dan Draft Ide di kanan; chat memakai `session_id`, Gemini 3.1 Pro via emergentintegrations, serta menyimpan riwayat dan draft ke MongoDB `activity_ideas`.
+- Draft Ide dapat diedit manual, disimpan, lalu disubmit sebagai bahan pembuatan RAB dan KAK; progress kartu kegiatan kini memiliki chip "Ide".
+- Tab RAB membaca Draft Ide submitted dan menyediakan tombol "Pakai untuk Form RAB"; tab KAK membaca Draft Ide submitted dan menyediakan tombol "Muat Draft Ide" ke textarea generate KAK.
+- Perbaikan hasil testing: brute-force login lockout memakai identifier email stabil agar tidak gagal di belakang ingress/proxy; seed user idempoten mengupdate password seeded bila berubah; CORS memakai origin eksplisit; dashboard chart diganti grafik CSS agar tidak ada warning Recharts.
 
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 4) — Pesan Revisi & Edit/Batalkan Lampiran
 - Pesan revisi Pimpinan: tab Persetujuan kini memiliki kolom "Pesan Revisi" per kegiatan berstatus Menunggu; pesan dikirim ke endpoint /api/projects/{pid}/revise dan masuk ke notifikasi PIC sebagai poin perbaikan.
@@ -66,6 +73,7 @@
 - Screenshot e2e: login → dashboard → RAB → Realisasi → AI KAK generate → relawan app (home + scan)
 - Belum diverifikasi di browser: upload foto nota langsung di UI (endpoint OCR sudah terbukti via curl), export PDF/Excel (mock toast)
 - Sesi 4: py_compile backend OK; yarn build OK dengan warning lama unrelated di KeuanganTab/RabTab/RelawanApp; API e2e OK untuk upload → replace → delete lampiran, submit, revisi dengan pesan, dan notifikasi PIC; screenshot Playwright OK untuk kolom pesan revisi serta ikon unduh/edit/batalkan lampiran.
+- Sesi 5: testing_agent backend+frontend berhasil untuk fitur Ide Kegiatan tetapi menemukan auth lockout lama; diperbaiki dan diverifikasi ulang. Self-test: real Gemini chat ide OK, save/submit draft OK, progress Ide OK, RAB/KAK mengambil bahan ide OK, py_compile OK, yarn build compiled successfully, pytest 6/6 passed, Playwright smoke test OK. Console final hanya 401 normal dari pengecekan /auth/me sebelum login; warning chart hilang setelah Recharts diganti grafik CSS.
 
 ## Backlog Prioritas
 - P0: Tidak ada blocker aktif pada alur utama saat ini.

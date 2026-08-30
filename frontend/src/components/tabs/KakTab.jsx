@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Printer, Sparkles } from "lucide-react";
+import { ClipboardCheck, Printer, Sparkles } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import ModelPicker from "@/components/ModelPicker";
+import { draftToKakText } from "@/components/tabs/IdeKegiatanTab";
 
 const SIGNERS = [
   { label: "Dibuat oleh;", name: "Saiful Rahman", role: "Staff Kebencanaan" },
@@ -17,6 +18,7 @@ export default function KakTab({ project = null }) {
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [history, setHistory] = useState([]);
+  const [idea, setIdea] = useState(null);
 
   useEffect(() => {
     if (!project?.id) return;
@@ -24,7 +26,17 @@ export default function KakTab({ project = null }) {
       setHistory(r.data);
       if (r.data[0]) setDoc({ title: r.data[0].title, sections: r.data[0].sections });
     }).catch(() => {});
+    api.get(`/projects/${project.id}/idea`).then((r) => {
+      if (r.data.status === "submitted") setIdea(r.data.draft || null);
+    }).catch(() => {});
   }, [project?.id]);
+
+  const loadIdeaToRaw = () => {
+    const text = draftToKakText(idea);
+    if (!text) return toast.warning("Draft ide belum memiliki bahan KAK");
+    setRaw(text);
+    toast.success("Draft ide dimuat sebagai bahan KAK");
+  };
 
   const generate = async () => {
     if (!raw.trim()) return toast.warning("Masukkan poin mentah kegiatan terlebih dahulu");
@@ -48,6 +60,17 @@ export default function KakTab({ project = null }) {
       <div className="flex-1 space-y-4 no-print">
         <h2 className="font-heading text-lg font-bold text-gray-800">AI Perencanaan (Kerangka Acuan Kegiatan / KAK)</h2>
         <p className="text-sm text-gray-500">Masukkan poin mentah kegiatan, AI akan merangkai dokumen KAK lengkap sesuai format resmi BAZNAS DKI.</p>
+        {idea && (
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 flex items-center justify-between gap-3 flex-wrap" data-testid="kak-idea-source-panel">
+            <div>
+              <p className="text-[10px] font-bold text-emerald-800 uppercase">Bahan dari Draft Ide</p>
+              <p className="text-xs text-emerald-700 font-semibold" data-testid="kak-idea-source-title">{idea.title || "Ide kegiatan siap digunakan"}</p>
+            </div>
+            <button data-testid="kak-load-idea-button" onClick={loadIdeaToRaw} className="text-xs bg-emerald-700 text-white hover:bg-emerald-800 px-3 py-2 rounded-lg font-bold transition flex items-center gap-1.5">
+              <ClipboardCheck className="w-3.5 h-3.5" /><span>Muat Draft Ide</span>
+            </button>
+          </div>
+        )}
         <textarea
           rows="6" value={raw} onChange={(e) => setRaw(e.target.value)}
           data-testid="kak-raw-input"

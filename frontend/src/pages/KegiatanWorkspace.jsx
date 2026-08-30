@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import Header from "@/components/Header";
+import IdeKegiatanTab from "@/components/tabs/IdeKegiatanTab";
 import KakTab from "@/components/tabs/KakTab";
 import RabTab from "@/components/tabs/RabTab";
 import KeuanganTab from "@/components/tabs/KeuanganTab";
@@ -18,8 +19,9 @@ const STATUS_STYLE = {
 };
 
 const SUBTABS = [
-  { id: "kak", label: "KAK" },
+  { id: "ide", label: "Buat Ide Kegiatan" },
   { id: "rab", label: "RAB" },
+  { id: "kak", label: "KAK" },
   { id: "keuangan", label: "Laporan Keuangan" },
   { id: "laporan", label: "Laporan Kegiatan" },
 ];
@@ -29,7 +31,7 @@ export default function KegiatanWorkspace() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [project, setProject] = useState(null);
-  const [sub, setSub] = useState("kak");
+  const [sub, setSub] = useState("ide");
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -102,8 +104,9 @@ export default function KegiatanWorkspace() {
 
             <AnimatePresence mode="wait">
               <motion.div key={sub} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25, ease: "easeOut" }}>
-                {sub === "kak" && <KakTab project={project} />}
+                {sub === "ide" && <IdeKegiatanTab project={project} />}
                 {sub === "rab" && <RabTab projectId={project.id} />}
+                {sub === "kak" && <KakTab project={project} />}
                 {sub === "keuangan" && <KeuanganTab project={project} />}
                 {sub === "laporan" && <LaporanTab project={project} />}
               </motion.div>

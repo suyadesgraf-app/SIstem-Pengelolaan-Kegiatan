@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Pencil, Trash2, X } from "lucide-react";
@@ -12,8 +12,8 @@ export default function KeuanganTab({ project }) {
   const [draft, setDraft] = useState({});
   const [notaView, setNotaView] = useState(null);
 
-  const load = () => api.get(`/realisasi?project_id=${project.id}`).then((r) => setItems(r.data)).catch(() => {});
-  useEffect(() => { load(); }, [project.id]);
+  const load = useCallback(() => api.get(`/realisasi?project_id=${project.id}`).then((r) => setItems(r.data)).catch(() => {}), [project.id]);
+  useEffect(() => { load(); }, [load]);
 
   const total = items.reduce((s, it) => s + (it.nominal || 0), 0);
 

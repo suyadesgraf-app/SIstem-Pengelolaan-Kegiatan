@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Trash2 } from "lucide-react";
+import { Lightbulb, Pencil, Trash2 } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 
 const KATEGORI_OPSI = ["Branding", "Perlengkapan", "Konsumsi"];
@@ -12,9 +12,16 @@ export default function RabTab({ projectId = "" }) {
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});
+  const [idea, setIdea] = useState(null);
 
-  const load = () => api.get(`/rab?project_id=${projectId}`).then((r) => setItems(r.data)).catch(() => {});
-  useEffect(() => { load(); }, [projectId]);
+  const load = useCallback(() => api.get(`/rab?project_id=${projectId}`).then((r) => setItems(r.data)).catch(() => {}), [projectId]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!projectId) return;
+    api.get(`/projects/${projectId}/idea`).then((r) => {
+      if (r.data.status === "submitted") setIdea(r.data.draft || null);
+    }).catch(() => {});
+  }, [projectId]);
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -27,6 +34,21 @@ export default function RabTab({ projectId = "" }) {
 
   const grandTotal = items.reduce((s, it) => s + it.qty * it.frek * it.harga, 0);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const useIdeaForRab = () => {
+    if (!idea) return toast.warning("Submit ide kegiatan terlebih dahulu");
+    setForm({
+      kategori: "lainnya",
+      kategoriManual: "Kegiatan Utama",
+      uraian: idea.activity_format || idea.title || "Pelaksanaan kegiatan",
+      qty: "1",
+      satuanQty: "Paket",
+      frek: "1",
+      satuanFrek: "Kegiatan",
+      harga: "",
+    });
+    toast.success("Bahan ide dimuat ke form RAB");
+  };
 
   const addItem = async () => {
     const kategori = form.kategori === "lainnya" ? form.kategoriManual.trim() : form.kategori;
@@ -85,6 +107,18 @@ export default function RabTab({ projectId = "" }) {
           <button data-testid="rab-export-spreadsheet" onClick={() => { window.open(`${process.env.REACT_APP_BACKEND_URL}/api/projects/${projectId}/export/rab.xlsx`); toast.info("File Excel kompatibel dengan Google Sheets / Spreadsheet"); }} className="text-xs border border-gray-300 text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-semibold transition">Spreadsheet</button>
         </div>
       </div>
+
+      {idea && (
+        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-5 flex flex-col md:flex-row md:items-center justify-between gap-3" data-testid="rab-idea-source-panel">
+          <div>
+            <p className="text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1"><Lightbulb className="w-3.5 h-3.5" /> Bahan dari Draft Ide</p>
+            <p className="text-xs text-emerald-700 mt-1" data-testid="rab-idea-source-notes">{idea.rab_notes || idea.budget_outline || "Draft ide siap dijadikan dasar pos anggaran."}</p>
+          </div>
+          <button data-testid="rab-use-idea-button" onClick={useIdeaForRab} className="text-xs bg-emerald-700 text-white hover:bg-emerald-800 active:scale-95 px-4 py-2 rounded-lg font-bold transition whitespace-nowrap">
+            Pakai untuk Form RAB
+          </button>
+        </div>
+      )}
 
       <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">

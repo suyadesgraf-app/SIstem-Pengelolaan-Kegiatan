@@ -3,10 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
-  PieChart, Pie, Cell,
-} from "recharts";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 
@@ -65,6 +61,7 @@ export default function DashboardTab() {
     : projects;
 
   const barData = projects.map((p) => ({ name: p.name, Anggaran: p.plafon, Realisasi: p.realisasi }));
+  const maxBudget = Math.max(1, ...barData.flatMap((p) => [p.Anggaran || 0, p.Realisasi || 0]));
   const slaData = stats
     ? [
         { name: "Tepat Waktu", value: stats.slaBuckets[0] },
@@ -72,6 +69,11 @@ export default function DashboardTab() {
         { name: "Terlambat", value: stats.slaBuckets[2] },
       ]
     : [];
+  const slaTotal = Math.max(1, slaData.reduce((sum, item) => sum + item.value, 0));
+  const slaPercents = slaData.map((item) => Math.round((item.value / slaTotal) * 100));
+  const donutStyle = {
+    background: `conic-gradient(${SLA_COLORS[0]} 0 ${slaPercents[0] || 0}%, ${SLA_COLORS[1]} ${slaPercents[0] || 0}% ${(slaPercents[0] || 0) + (slaPercents[1] || 0)}%, ${SLA_COLORS[2]} ${(slaPercents[0] || 0) + (slaPercents[1] || 0)}% 100%)`,
+  };
 
   return (
     <div className="space-y-6" data-testid="dashboard-tab">
@@ -182,7 +184,7 @@ export default function DashboardTab() {
                   <span className="text-gray-400">{p.nomor_indeks}</span>
                 </div>
                 <div className="flex items-center flex-wrap gap-1.5 mt-2" data-testid={`progress-${p.nomor_indeks}`}>
-                  {[["KAK", "kak"], ["RAB", "rab"], ["Keuangan", "keuangan"], ["Laporan", "laporan"]].map(([label, key]) => (
+                  {[["Ide", "idea"], ["RAB", "rab"], ["KAK", "kak"], ["Keuangan", "keuangan"], ["Laporan", "laporan"]].map(([label, key]) => (
                     <span key={key} className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${p.progress?.[key] > 0 ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-400"}`}>
                       {p.progress?.[key] > 0 ? "✓" : "—"} {label}
                     </span>
@@ -208,33 +210,39 @@ export default function DashboardTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
           <h3 className="font-heading font-bold text-gray-800 text-sm mb-4">Grafik Realisasi vs Anggaran</h3>
-          <div className="chart-container" data-testid="chart-budget-vs-realization">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-12} textAnchor="end" height={48} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v) => `Rp ${v} Jt`} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="Anggaran" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Realisasi" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="chart-container min-w-0 overflow-y-auto pr-1 space-y-3" data-testid="chart-budget-vs-realization">
+            {barData.map((p, i) => (
+              <div key={p.name} data-testid={`budget-chart-row-${i}`} className="space-y-1.5">
+                <div className="flex justify-between gap-3 text-[10px] font-bold text-gray-500">
+                  <span className="truncate">{p.name}</span>
+                  <span className="whitespace-nowrap">{fmtMiliar(p.Realisasi)} / {fmtMiliar(p.Anggaran)}</span>
+                </div>
+                <div className="h-3 bg-gray-100 rounded-full overflow-hidden relative">
+                  <div className="absolute inset-y-0 left-0 bg-slate-300" style={{ width: `${Math.max(4, (p.Anggaran / maxBudget) * 100)}%` }} />
+                  <div className="absolute inset-y-0 left-0 bg-emerald-500" style={{ width: `${Math.max(3, (p.Realisasi / maxBudget) * 100)}%` }} />
+                </div>
+              </div>
+            ))}
+            {barData.length === 0 && <p className="text-xs text-gray-400 text-center py-10" data-testid="budget-chart-empty">Belum ada data grafik.</p>}
           </div>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
           <h3 className="font-heading font-bold text-gray-800 text-sm mb-4">Status SLA & Pelaporan H+7</h3>
-          <div className="chart-container" data-testid="chart-sla-status">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={slaData} dataKey="value" nameKey="name" innerRadius="60%" outerRadius="85%" strokeWidth={0}>
-                  {slaData.map((_, i) => (
-                    <Cell key={i} fill={SLA_COLORS[i]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="chart-container min-w-0 flex items-center justify-center gap-6 flex-wrap" data-testid="chart-sla-status">
+            <div className="w-36 h-36 rounded-full p-5" style={donutStyle} data-testid="sla-donut-chart">
+              <div className="w-full h-full rounded-full bg-white flex flex-col items-center justify-center text-center shadow-inner">
+                <span className="font-heading font-extrabold text-2xl text-gray-900" data-testid="sla-donut-total">{slaTotal}</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Kegiatan</span>
+              </div>
+            </div>
+            <div className="space-y-2 min-w-[180px]">
+              {slaData.map((item, i) => (
+                <div key={item.name} className="flex items-center justify-between gap-4 text-xs" data-testid={`sla-chart-item-${i}`}>
+                  <span className="flex items-center gap-2 text-gray-600"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: SLA_COLORS[i] }} />{item.name}</span>
+                  <span className="font-bold text-gray-800">{item.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

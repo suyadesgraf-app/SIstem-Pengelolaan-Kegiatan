@@ -9,7 +9,7 @@ import uuid
 import base64
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, Any, Dict
 
 import bcrypt
 import jwt
@@ -24,7 +24,7 @@ mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret")
+JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
 LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
@@ -56,6 +56,10 @@ def create_refresh_token(user_id: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
+def login_attempt_identifier(email: str) -> str:
+    return f"login:{email}"
+
+
 async def get_current_user(request: Request):
     token = request.cookies.get("access_token")
     if not token:
@@ -84,7 +88,7 @@ class LoginIn(BaseModel):
 @api.post("/auth/login")
 async def login(body: LoginIn, request: Request, response: Response):
     email = body.email.lower().strip()
-    identifier = f"{request.client.host if request.client else 'x'}:{email}"
+    identifier = login_attempt_identifier(email)
     att = await db.login_attempts.find_one({"identifier": identifier})
     if att and att.get("count", 0) >= 5:
         try:
@@ -215,6 +219,7 @@ async def list_projects(user=Depends(get_current_user)):
     projects = await db.projects.find(query, {"_id": 0}).to_list(200)
     for p in projects:
         p["progress"] = {
+            "idea": await db.activity_ideas.count_documents({"project_id": p["id"], "status": "submitted"}),
             "kak": await db.kaks.count_documents({"project_id": p["id"]}),
             "rab": await db.rab_items.count_documents({"project_id": p["id"]}),
             "keuangan": await db.realisasi.count_documents({"project_id": p["id"]}),
@@ -254,6 +259,103 @@ async def create_project(body: ProjectIn, user=Depends(get_current_user)):
                 for r in relawans])
     doc.pop("_id", None)
     return doc
+
+
+async def ensure_project_access(pid: str, user: dict):
+    project = await db.projects.find_one({"id": pid}, {"_id": 0})
+    if not project:
+        raise HTTPException(404, "Kegiatan tidak ditemukan")
+    allowed = user["role"] == "superadmin" or project.get("created_by") == user["id"]
+    if not allowed:
+        raise HTTPException(403, "Anda tidak berhak mengakses kegiatan ini")
+    return project
+
+
+IDEA_DRAFT_FIELDS = {
+    "title": "",
+    "background": "",
+    "goal": "",
+    "beneficiaries": "",
+    "location": "",
+    "schedule": "",
+    "activity_format": "",
+    "budget_outline": "",
+    "rab_notes": "",
+    "kak_notes": "",
+}
+
+
+def normalize_idea_draft(draft: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    source = draft or {}
+    return {k: str(source.get(k, "") or "")[:3000] for k in IDEA_DRAFT_FIELDS}
+
+
+def idea_to_prompt(draft: Dict[str, str]) -> str:
+    labels = {
+        "title": "Judul",
+        "background": "Latar Belakang",
+        "goal": "Tujuan",
+        "beneficiaries": "Sasaran/Penerima Manfaat",
+        "location": "Lokasi",
+        "schedule": "Waktu",
+        "activity_format": "Bentuk Kegiatan",
+        "budget_outline": "Gambaran Anggaran",
+        "rab_notes": "Catatan RAB",
+        "kak_notes": "Catatan KAK",
+    }
+    return "\n".join([f"{labels[k]}: {draft.get(k) or '-'}" for k in IDEA_DRAFT_FIELDS])
+
+
+@api.get("/projects/{pid}/idea")
+async def get_activity_idea(pid: str, user=Depends(get_current_user)):
+    await ensure_project_access(pid, user)
+    idea = await db.activity_ideas.find_one({"project_id": pid}, {"_id": 0})
+    if not idea:
+        return {"project_id": pid, "status": "draft", "draft": normalize_idea_draft(), "messages": []}
+    idea["draft"] = normalize_idea_draft(idea.get("draft"))
+    idea["messages"] = idea.get("messages", [])[-80:]
+    return idea
+
+
+class IdeaDraftIn(BaseModel):
+    session_id: str = ""
+    draft: Dict[str, Any] = {}
+
+
+@api.put("/projects/{pid}/idea/draft")
+async def save_activity_idea(pid: str, body: IdeaDraftIn, user=Depends(get_current_user)):
+    await ensure_project_access(pid, user)
+    now = datetime.now(timezone.utc).isoformat()
+    existing = await db.activity_ideas.find_one({"project_id": pid}, {"_id": 0})
+    doc_id = existing.get("id") if existing else str(uuid.uuid4())
+    session_id = body.session_id or (existing or {}).get("session_id") or str(uuid.uuid4())
+    draft = normalize_idea_draft(body.draft)
+    update = {"id": doc_id, "project_id": pid, "session_id": session_id, "draft": draft,
+              "status": (existing or {}).get("status", "draft"), "updated_by": user["id"], "updated_at": now}
+    if not existing:
+        update["created_at"] = now
+        update["messages"] = []
+    await db.activity_ideas.update_one({"project_id": pid}, {"$set": update}, upsert=True)
+    return await db.activity_ideas.find_one({"project_id": pid}, {"_id": 0})
+
+
+@api.post("/projects/{pid}/idea/submit")
+async def submit_activity_idea(pid: str, body: IdeaDraftIn, user=Depends(get_current_user)):
+    await ensure_project_access(pid, user)
+    now = datetime.now(timezone.utc).isoformat()
+    draft = normalize_idea_draft(body.draft)
+    if not draft.get("title") or not draft.get("goal"):
+        raise HTTPException(400, "Judul dan tujuan ide wajib diisi sebelum submit")
+    existing = await db.activity_ideas.find_one({"project_id": pid}, {"_id": 0})
+    doc_id = existing.get("id") if existing else str(uuid.uuid4())
+    session_id = body.session_id or (existing or {}).get("session_id") or str(uuid.uuid4())
+    update = {"id": doc_id, "project_id": pid, "session_id": session_id, "draft": draft,
+              "status": "submitted", "submitted_by": user["id"], "submitted_at": now, "updated_at": now}
+    if not existing:
+        update["created_at"] = now
+        update["messages"] = []
+    await db.activity_ideas.update_one({"project_id": pid}, {"$set": update}, upsert=True)
+    return await db.activity_ideas.find_one({"project_id": pid}, {"_id": 0})
 
 
 @api.get("/dashboard/stats")
@@ -556,8 +658,9 @@ def resolve_model(provider: str, kind: str):
 
 
 async def llm_complete(system: str, text: str, image_b64: Optional[str] = None,
-                       provider: str = "openai", model: str = "gpt-5.4") -> str:
-    chat = LlmChat(api_key=LLM_KEY, session_id=str(uuid.uuid4()),
+                       provider: str = "openai", model: str = "gpt-5.4",
+                       session_id: Optional[str] = None) -> str:
+    chat = LlmChat(api_key=LLM_KEY, session_id=session_id or str(uuid.uuid4()),
                    system_message=system).with_model(provider, model)
     kwargs = {"text": text}
     if image_b64:
@@ -577,6 +680,65 @@ def parse_llm_json(raw: str):
     if not match:
         raise ValueError("no json")
     return json.loads(match.group(0))
+
+
+class IdeaChatIn(BaseModel):
+    message: str
+    session_id: str = ""
+    provider: str = "gemini"
+    draft: Dict[str, Any] = {}
+
+
+@api.post("/projects/{pid}/idea/chat")
+async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_current_user)):
+    project = await ensure_project_access(pid, user)
+    message = body.message.strip()
+    if not message:
+        raise HTTPException(400, "Pesan chat wajib diisi")
+    prov, model = resolve_model(body.provider, "doc")
+    session_id = body.session_id or str(uuid.uuid4())
+    existing = await db.activity_ideas.find_one({"project_id": pid}, {"_id": 0})
+    current_draft = normalize_idea_draft({**(existing or {}).get("draft", {}), **body.draft})
+    history = (existing or {}).get("messages", [])[-12:]
+    system = (
+        "Anda adalah konsultan perancang program BAZNAS BAZIS Provinsi DKI Jakarta. "
+        "Bantu PIC menggali ide kegiatan melalui obrolan yang ramah, praktis, dan bertahap. "
+        "Setiap jawaban wajib memperbarui Draft Ide agar bisa menjadi bahan RAB dan KAK. "
+        "Balas HANYA JSON valid dengan struktur: "
+        "{\"reply\": str, \"draft\": {\"title\": str, \"background\": str, \"goal\": str, "
+        "\"beneficiaries\": str, \"location\": str, \"schedule\": str, \"activity_format\": str, "
+        "\"budget_outline\": str, \"rab_notes\": str, \"kak_notes\": str}, \"next_questions\": [str, str]}. "
+        "Jika informasi belum lengkap, isi draft dengan asumsi wajar dan pertanyaan lanjutan singkat."
+    )
+    prompt = (
+        f"Kegiatan saat ini: {project.get('name', '')} ({project.get('nomor_indeks', '')})\n"
+        f"Lokasi awal: {project.get('loc', '-')}; tanggal awal: {project.get('date', '-')}\n\n"
+        f"Draft saat ini:\n{idea_to_prompt(current_draft)}\n\n"
+        f"Riwayat chat ringkas JSON:\n{json.dumps(history, ensure_ascii=False)}\n\n"
+        f"Pesan PIC terbaru:\n{message}"
+    )
+    try:
+        raw = await llm_complete(system, prompt, provider=prov, model=model, session_id=session_id)
+        data = parse_llm_json(raw)
+        reply = str(data.get("reply", "Baik, saya perbarui Draft Ide kegiatan."))
+        new_draft = normalize_idea_draft({**current_draft, **(data.get("draft") or {})})
+        next_questions = data.get("next_questions") if isinstance(data.get("next_questions"), list) else []
+    except Exception as e:
+        logger.error(f"Idea chat error: {e}")
+        raise HTTPException(500, "AI gagal membantu menyusun ide, coba lagi")
+    now = datetime.now(timezone.utc).isoformat()
+    user_msg = {"id": str(uuid.uuid4()), "role": "user", "content": message, "created_at": now}
+    assistant_msg = {"id": str(uuid.uuid4()), "role": "assistant", "content": reply, "created_at": now,
+                     "next_questions": [str(q)[:240] for q in next_questions[:3]]}
+    messages = (existing or {}).get("messages", []) + [user_msg, assistant_msg]
+    update = {"id": (existing or {}).get("id", str(uuid.uuid4())), "project_id": pid, "session_id": session_id,
+              "draft": new_draft, "messages": messages[-80:], "status": (existing or {}).get("status", "draft"),
+              "updated_by": user["id"], "updated_at": now}
+    if not existing:
+        update["created_at"] = now
+    await db.activity_ideas.update_one({"project_id": pid}, {"$set": update}, upsert=True)
+    return {"reply": reply, "draft": new_draft, "messages": messages[-80:], "session_id": session_id,
+            "status": update["status"], "next_questions": assistant_msg["next_questions"]}
 
 
 class OcrIn(BaseModel):
@@ -1045,6 +1207,15 @@ async def seed():
                 "id": str(uuid.uuid4()), "email": u["email"], "name": u["name"], "role": u["role"],
                 "password_hash": hash_password(u["password"]),
                 "created_at": datetime.now(timezone.utc).isoformat()})
+        else:
+            updates = {"name": u["name"], "role": u["role"]}
+            try:
+                needs_password_update = not verify_password(u["password"], existing.get("password_hash", ""))
+            except Exception:
+                needs_password_update = True
+            if needs_password_update:
+                updates["password_hash"] = hash_password(u["password"])
+            await db.users.update_one({"email": u["email"]}, {"$set": updates})
     if await db.projects.count_documents({}) == 0:
         await db.projects.insert_many([{**p, "id": str(uuid.uuid4())} for p in SEED_PROJECTS])
     if await db.rab_items.count_documents({}) == 0:
@@ -1073,10 +1244,12 @@ async def seed():
 
 app.include_router(api)
 
+cors_origins = [origin.strip() for origin in os.environ["CORS_ORIGINS"].split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
