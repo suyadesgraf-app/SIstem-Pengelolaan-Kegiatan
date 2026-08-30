@@ -116,6 +116,9 @@ frontend:
       - working: true
         agent: "testing"
         comment: "✅ PASS - Login page branding verified successfully. Found data-testid='login-powered-by-section' at bottom of form area (y=862) with 'flex justify-center' classes for horizontal centering. Contains data-testid='powered-by-cheng-suya-login-link' with target='_blank', rel='noopener noreferrer', pointing to correct Instagram URL. Text 'Powered by Cheng Suya' is present and readable."
+      - working: true
+        agent: "testing"
+        comment: "✅ RETEST PASS (2026-08-30) - Login page branding verified with updated requirements. Position: bottom center (x=1216, y=884) with 'justify-center' class. Text content is exactly 'Cheng Suya' (no 'Powered by' prefix). Instagram icon present. NO chip/box styling - classes are clean 'inline-flex items-center gap-2 text-gray-600' with no border/background/rounded classes. Link opens Instagram in new tab with proper security attributes. Visual inspection confirms no box/chip wrapper."
 
   - task: "Sidebar profile branding - Powered by Cheng Suya"
     implemented: true
@@ -128,6 +131,9 @@ frontend:
       - working: true
         agent: "testing"
         comment: "✅ PASS - Sidebar profile branding verified successfully. Found data-testid='sidebar-powered-by-section' at bottom of profile card (y=464.25), positioned below Email and Unit information as required. Contains data-testid='powered-by-cheng-suya-sidebar-link' with target='_blank', rel='noopener noreferrer', pointing to correct Instagram URL. Text 'Powered by Cheng Suya' is present and readable."
+      - working: true
+        agent: "testing"
+        comment: "✅ RETEST PASS (2026-08-30) - Sidebar branding verified with updated requirements. Position: left bottom of profile card (x=377, y=468.5) with 'justify-start' and 'mt-auto' classes for proper positioning. Text content is exactly 'Cheng Suya' (no 'Powered by' prefix). Instagram icon present. NO chip/box styling - classes are clean 'inline-flex items-center gap-2 text-gray-600' with no border/background/rounded classes. Computed styles confirm: transparent background, 0px border, 0px borderRadius, 0px padding. Link opens Instagram in new tab with proper security attributes. Visual inspection confirms no box/chip wrapper."
 
   - task: "Header - No branding in header/top nav"
     implemented: true
@@ -152,11 +158,14 @@ frontend:
       - working: true
         agent: "testing"
         comment: "✅ PASS - Component correctly implements context-based rendering with proper test IDs for both login and sidebar contexts. Instagram link (https://www.instagram.com/cheng_suya?igsi=MWhydTk3MWVqbnZw&utm_source=qr) opens in new tab with target='_blank' and rel='noopener noreferrer' for security. Styling is appropriate with hover effects."
+      - working: true
+        agent: "testing"
+        comment: "✅ RETEST PASS (2026-08-30) - Component verified with updated requirements. Renders as simple <a> tag with 'inline-flex items-center gap-2' - NO chip/box wrapper. Text content is 'Cheng Suya' only (no 'Powered by' prefix). Instagram icon + text layout correct. Context-based rendering works for both login and sidebar. All test IDs present and correct. Link security attributes verified."
 
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: true
   last_tested: "2026-08-30"
 
@@ -170,3 +179,5 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "Completed comprehensive UI testing of 'Powered by Cheng Suya' branding implementation. All requirements verified successfully: (1) Login page branding at bottom center with correct test IDs, (2) Super Admin login working (superadmin@baznas.id / admin123), (3) No branding in header/top nav, (4) Branding in sidebar profile below Email and Unit info with correct test IDs, (5) All Instagram links open in new tab with proper security attributes. Screenshots captured for visual verification. All tests PASSED."
+  - agent: "testing"
+    message: "RETEST COMPLETED (2026-08-30) - Verified all updated branding requirements: (1) Login page branding at bottom center WITHOUT chip/box wrapper - text is 'Cheng Suya' only with Instagram icon, (2) Sidebar branding at left bottom of profile card WITHOUT chip/box wrapper - text is 'Cheng Suya' only with Instagram icon, (3) Both links open Instagram in new tab with proper security, (4) Visual inspection and computed styles confirm NO background/border/rounded styling on links. All requirements PASSED. Screenshots saved: login_branding.png, dashboard_sidebar_branding.png."

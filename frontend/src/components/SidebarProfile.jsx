@@ -4,7 +4,7 @@ import { PoweredByChengSuya } from "@/components/PoweredByChengSuya";
 
 export default function SidebarProfile({ user }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col items-center text-center shadow-sm" data-testid="sidebar-profile-card">
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col items-center text-center shadow-sm min-h-[430px]" data-testid="sidebar-profile-card">
       <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-2xl flex justify-center items-center mb-4 border border-emerald-200">
         <UserRound className="w-10 h-10" />
       </div>
@@ -26,7 +26,7 @@ export default function SidebarProfile({ user }) {
           <span className="text-gray-700 font-medium">BAZNAS BAZIS DKI</span>
         </div>
       </div>
-      <div className="w-full pt-4 mt-4 border-t border-gray-100 flex justify-start" data-testid="sidebar-powered-by-section">
+      <div className="w-full pt-4 mt-auto border-t border-gray-100 flex justify-start" data-testid="sidebar-powered-by-section">
         <PoweredByChengSuya context="sidebar" />
       </div>
     </div>

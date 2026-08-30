@@ -9,19 +9,19 @@ export const PoweredByChengSuya = ({ context = "login" }) => (
     rel="noopener noreferrer"
     data-testid={context === "sidebar" ? "powered-by-cheng-suya-sidebar-link" : "powered-by-cheng-suya-login-link"}
     aria-label="Buka Instagram Cheng Suya"
-    className={`group inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-100 text-gray-700 shadow-sm transition active:scale-95 hover:border-stone-300 hover:bg-stone-200 ${
-      context === "sidebar" ? "px-3 py-2 text-[11px] font-semibold" : "px-4 py-2.5 text-xs font-semibold"
+    className={`group inline-flex items-center gap-2 text-gray-600 transition active:scale-95 hover:text-gray-900 ${
+      context === "sidebar" ? "text-[11px] font-semibold" : "text-xs font-semibold"
     }`}
   >
-    <span
-      data-testid={context === "sidebar" ? "powered-by-cheng-suya-sidebar-text" : "powered-by-cheng-suya-login-text"}
-      className="inline"
-    >
-      Powered by Cheng Suya
-    </span>
     <Instagram
       data-testid={context === "sidebar" ? "powered-by-cheng-suya-sidebar-icon" : "powered-by-cheng-suya-login-icon"}
       className="w-4 h-4 transition group-hover:rotate-6"
     />
+    <span
+      data-testid={context === "sidebar" ? "powered-by-cheng-suya-sidebar-text" : "powered-by-cheng-suya-login-text"}
+      className="inline"
+    >
+      Cheng Suya
+    </span>
   </a>
 );
