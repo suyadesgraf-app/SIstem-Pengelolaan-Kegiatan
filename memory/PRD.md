@@ -29,8 +29,8 @@
 - Perbaikan hasil testing: brute-force login lockout memakai identifier email stabil agar tidak gagal di belakang ingress/proxy; seed user idempoten mengupdate password seeded bila berubah; CORS memakai origin eksplisit; dashboard chart diganti grafik CSS agar tidak ada warning Recharts.
 
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 6) — Gulir Otomatis Ide Kegiatan
-- Panel Chat AI dan kolom Draft Ide kini mendukung gulir otomatis ke atas/bawah saat kursor diarahkan ke area tepi panel, serta gulir native dengan roda mouse dan touchpad. Pengguna tidak perlu menarik scrollbar samping untuk membaca atau mengisi konten panjang.
-- Scrollbar visual disembunyikan dan gulir otomatis berhenti saat kursor meninggalkan panel atau kembali ke bagian tengah sehingga tidak mengganggu proses membaca dan pengisian form.
+- Chat AI Ide Kegiatan dipindahkan ke popup mandiri dan bisa diminimalkan menjadi tombol melayang di tengah bawah layar. Draft Ide kini memakai seluruh lebar workspace agar lebih mudah dibaca dan diedit.
+- Fitur gulir otomatis berdasarkan posisi kursor dihilangkan. Panel panjang tetap mendukung gulir normal dengan roda mouse, touchpad, dan gestur sentuh; scrollbar visual disembunyikan.
 
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 4) — Pesan Revisi & Edit/Batalkan Lampiran
 - Pesan revisi Pimpinan: tab Persetujuan kini memiliki kolom "Pesan Revisi" per kegiatan berstatus Menunggu; pesan dikirim ke endpoint /api/projects/{pid}/revise dan masuk ke notifikasi PIC sebagai poin perbaikan.

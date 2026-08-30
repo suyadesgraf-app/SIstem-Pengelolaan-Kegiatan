@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Bot, CheckCircle2, ClipboardCheck, Lightbulb, Save, SendHorizonal, UserRound } from "lucide-react";
+import { Bot, CheckCircle2, ClipboardCheck, Lightbulb, MessageCircle, Save } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
-import ModelPicker from "@/components/ModelPicker";
+import { IdeaChatPopup } from "@/components/tabs/IdeaChatPopup";
 
 const FIELDS = [
   ["title", "Judul Ide", "Contoh: Layanan Kesehatan Keliling untuk Dhuafa"],
@@ -24,62 +24,6 @@ const makeSessionId = () => {
   return `idea-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const useEdgeAutoScroll = () => {
-  const containerRef = useRef(null);
-  const animationRef = useRef(null);
-  const speedRef = useRef(0);
-
-  const stopAutoScroll = useCallback(() => {
-    speedRef.current = 0;
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-  }, []);
-
-  const moveAutoScroll = useCallback(() => {
-    const container = containerRef.current;
-    if (!container || !speedRef.current) return stopAutoScroll();
-
-    const before = container.scrollTop;
-    container.scrollTop += speedRef.current;
-    const reachedEdge = before === container.scrollTop;
-    if (reachedEdge) return stopAutoScroll();
-    animationRef.current = requestAnimationFrame(moveAutoScroll);
-  }, [stopAutoScroll]);
-
-  const handleMouseMove = useCallback((event) => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const edgeZone = Math.min(84, rect.height * 0.24);
-    const topDistance = event.clientY - rect.top;
-    const bottomDistance = rect.bottom - event.clientY;
-    let speed = 0;
-
-    if (topDistance < edgeZone) speed = -Math.max(2, ((edgeZone - topDistance) / edgeZone) * 12);
-    if (bottomDistance < edgeZone) speed = Math.max(2, ((edgeZone - bottomDistance) / edgeZone) * 12);
-
-    speedRef.current = speed;
-    if (speed && !animationRef.current) animationRef.current = requestAnimationFrame(moveAutoScroll);
-    if (!speed) stopAutoScroll();
-  }, [moveAutoScroll, stopAutoScroll]);
-
-  const handleWheel = useCallback((event) => {
-    const container = containerRef.current;
-    if (!container || !event.deltaY) return;
-
-    const before = container.scrollTop;
-    container.scrollTop += event.deltaY;
-    if (before !== container.scrollTop) event.preventDefault();
-  }, []);
-
-  useEffect(() => stopAutoScroll, [stopAutoScroll]);
-
-  return { containerRef, onMouseMove: handleMouseMove, onMouseLeave: stopAutoScroll, onWheel: handleWheel };
-};
-
 export const draftToKakText = (draft = {}) => FIELDS
   .filter(([key]) => draft[key])
   .map(([key, label], i) => `${i + 1}. ${label}: ${draft[key]}`)
@@ -94,8 +38,8 @@ export default function IdeKegiatanTab({ project }) {
   const [provider, setProvider] = useState("gemini");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const chatScroll = useEdgeAutoScroll();
-  const draftScroll = useEdgeAutoScroll();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMinimized, setChatMinimized] = useState(false);
 
   const greeting = useMemo(() => ({
     id: "greeting",
@@ -115,6 +59,12 @@ export default function IdeKegiatanTab({ project }) {
   }, [greeting, project?.id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const handleEscape = (event) => { if (event.key === "Escape") setChatOpen(false); };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
 
   const updateDraft = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
 
@@ -161,74 +111,27 @@ export default function IdeKegiatanTab({ project }) {
     finally { setSaving(false); }
   };
 
-  return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6" data-testid="ide-kegiatan-tab">
-      <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" data-testid="idea-chat-panel">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center"><Bot className="w-5 h-5" /></span>
-            <div>
-              <h2 className="font-heading text-lg font-bold text-gray-900" data-testid="idea-chat-title">Chat AI Ide Kegiatan</h2>
-              <p className="text-xs text-gray-500" data-testid="idea-chat-session">Session: {sessionId.slice(0, 8)}</p>
-            </div>
-          </div>
-          <ModelPicker value={provider} onChange={setProvider} kind="doc" compact />
-        </div>
-        <div
-          ref={chatScroll.containerRef}
-          onMouseMove={chatScroll.onMouseMove}
-          onMouseLeave={chatScroll.onMouseLeave}
-          onWheel={chatScroll.onWheel}
-          className="h-[460px] overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide p-5 space-y-3 bg-gradient-to-b from-gray-50 to-white"
-          data-testid="idea-chat-messages"
-          aria-label="Pesan chat ide, arahkan kursor ke tepi atas atau bawah untuk gulir otomatis"
-        >
-          {messages.map((m, i) => (
-            <div key={m.id || i} data-testid={`idea-chat-message-${i}`} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              {m.role !== "user" && <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0"><Bot className="w-4 h-4" /></span>}
-              <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${m.role === "user" ? "bg-emerald-700 text-white" : "bg-white border border-gray-200 text-gray-700 shadow-sm"}`}>
-                <p>{m.content}</p>
-                {m.next_questions?.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5" data-testid={`idea-next-questions-${i}`}>
-                    {m.next_questions.map((q, qi) => (
-                      <button key={q} data-testid={`idea-next-question-${i}-${qi}`} onClick={() => setInput(q)} className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition">
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {m.role === "user" && <span className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0"><UserRound className="w-4 h-4" /></span>}
-            </div>
-          ))}
-          {loading && <div data-testid="idea-chat-loading" className="text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-full px-3 py-2 w-fit">AI sedang menyusun draft...</div>}
-        </div>
-        <div className="p-4 border-t border-gray-100 bg-white">
-          <div className="flex gap-2">
-            <textarea data-testid="idea-chat-input" value={input} onChange={(e) => setInput(e.target.value)} rows={2} placeholder="Mau buat kegiatan apa dan seperti apa?" className="flex-1 text-sm rounded-xl border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
-            <button data-testid="idea-chat-send-button" onClick={() => sendMessage()} disabled={loading} className="w-12 rounded-xl bg-emerald-700 text-white hover:bg-emerald-800 active:scale-95 transition flex items-center justify-center disabled:opacity-60" aria-label="Kirim pesan ide">
-              <SendHorizonal className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </section>
+  const openChat = () => { setChatMinimized(false); setChatOpen(true); };
+  const minimizeChat = () => { setChatOpen(false); setChatMinimized(true); };
+  const closeChat = () => { setChatOpen(false); setChatMinimized(false); };
 
+  return (
+    <div className="relative" data-testid="ide-kegiatan-tab">
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5" data-testid="idea-draft-panel">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><Lightbulb className="w-3.5 h-3.5" /> Draft Ide</p>
             <h2 className="font-heading text-lg font-bold text-gray-900 mt-1" data-testid="idea-draft-heading">Bahan Awal RAB & KAK</h2>
           </div>
-          <span data-testid="idea-draft-status" className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${status === "submitted" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status === "submitted" ? "Sudah Disubmit" : "Draft"}</span>
+          <div className="flex items-center gap-2">
+            <span data-testid="idea-draft-status" className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${status === "submitted" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status === "submitted" ? "Sudah Disubmit" : "Draft"}</span>
+            <button data-testid="idea-chat-open-button" onClick={openChat} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-800 active:scale-95"><MessageCircle className="h-4 w-4" />Buka Chat AI</button>
+          </div>
         </div>
         <div
-          ref={draftScroll.containerRef}
-          onMouseMove={draftScroll.onMouseMove}
-          onMouseLeave={draftScroll.onMouseLeave}
-          onWheel={draftScroll.onWheel}
           className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide pr-1"
           data-testid="idea-draft-fields"
-          aria-label="Kolom draft ide, arahkan kursor ke tepi atas atau bawah untuk gulir otomatis"
+          aria-label="Kolom draft ide"
         >
           {FIELDS.map(([key, label, placeholder]) => (
             <label key={key} className={key.includes("notes") || key === "background" || key === "activity_format" ? "md:col-span-2" : ""} data-testid={`idea-draft-${key}-field`}>
@@ -247,6 +150,8 @@ export default function IdeKegiatanTab({ project }) {
           </button>
         </div>
       </section>
+      {chatOpen && <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} loading={loading} onSend={sendMessage} onMinimize={minimizeChat} onClose={closeChat} />}
+      {chatMinimized && <button data-testid="idea-chat-restore-button" onClick={openChat} className="fixed bottom-5 left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-800 active:scale-95"><Bot className="h-5 w-5" />Buka Chat AI</button>}
     </div>
   );
 }
