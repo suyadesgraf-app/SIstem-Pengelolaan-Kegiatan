@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { LayoutDashboard, FolderOpen, LogOut, Bell } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
-import { PoweredByChengSuya } from "@/components/PoweredByChengSuya";
 
 export default function Header({ user, onLogout }) {
   const [notifs, setNotifs] = useState([]);
@@ -61,7 +60,6 @@ export default function Header({ user, onLogout }) {
               <FolderOpen className="w-4 h-4" />
               <span>Daftar Kegiatan</span>
             </button>
-            <PoweredByChengSuya compact />
             <div className="relative" ref={notifRef}>
               <button
                 data-testid="header-notif-bell"

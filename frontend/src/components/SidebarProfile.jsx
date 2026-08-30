@@ -1,5 +1,6 @@
 import { UserRound } from "lucide-react";
 import { ROLE_LABELS, ROLE_DESCS } from "@/context/AuthContext";
+import { PoweredByChengSuya } from "@/components/PoweredByChengSuya";
 
 export default function SidebarProfile({ user }) {
   return (
@@ -24,6 +25,9 @@ export default function SidebarProfile({ user }) {
           <span className="text-gray-400 font-semibold">Unit</span>
           <span className="text-gray-700 font-medium">BAZNAS BAZIS DKI</span>
         </div>
+      </div>
+      <div className="w-full pt-4 mt-4 border-t border-gray-100 flex justify-start" data-testid="sidebar-powered-by-section">
+        <PoweredByChengSuya context="sidebar" />
       </div>
     </div>
   );

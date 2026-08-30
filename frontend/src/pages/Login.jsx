@@ -102,81 +102,83 @@ export default function Login() {
       {/* FORM */}
       <div className="flex items-center justify-center p-6 sm:p-12 bg-appbg min-h-screen lg:min-h-0">
         <motion.div
-          className="w-full max-w-md"
+          className="w-full max-w-md min-h-[calc(100vh-3rem)] sm:min-h-[calc(100vh-6rem)] lg:min-h-[720px] flex flex-col"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="flex items-center space-x-3 mb-8">
-            <img
-              src="https://baznasbazisdki.id/assets/img/logo-dark-min.png"
-              alt="Logo BAZNAS DKI"
-              className="h-10 w-auto object-contain"
-              onError={(e) => { e.currentTarget.style.display = "none"; }}
-            />
-            <div className="border-l border-gray-200 pl-3">
-              <p className="font-heading font-bold text-sm text-gray-800 leading-tight">BAZNAS BAZIS DKI</p>
-              <p className="text-[11px] text-gray-500 font-medium">Sistem Integrasi Pengelolaan Program/Kegiatan</p>
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="flex items-center space-x-3 mb-8">
+              <img
+                src="https://baznasbazisdki.id/assets/img/logo-dark-min.png"
+                alt="Logo BAZNAS DKI"
+                className="h-10 w-auto object-contain"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+              <div className="border-l border-gray-200 pl-3">
+                <p className="font-heading font-bold text-sm text-gray-800 leading-tight">BAZNAS BAZIS DKI</p>
+                <p className="text-[11px] text-gray-500 font-medium">Sistem Integrasi Pengelolaan Program/Kegiatan</p>
+              </div>
+            </div>
+
+            <h2 className="font-heading font-extrabold text-2xl text-gray-900 tracking-tight">Masuk ke Akun Anda</h2>
+            <p className="text-sm text-gray-500 mt-1 mb-7">Gunakan akun sesuai peran Anda di lapangan.</p>
+
+            <form onSubmit={submit} className="space-y-4" data-testid="login-form">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                    placeholder="nama@baznas.id" data-testid="login-email-input"
+                    className="w-full text-sm border border-gray-300 rounded-xl pl-10 pr-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Kata Sandi</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••" data-testid="login-password-input"
+                    className="w-full text-sm border border-gray-300 rounded-xl pl-10 pr-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition"
+                  />
+                </div>
+              </div>
+              {error && (
+                <div data-testid="login-error" className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                  {error}
+                </div>
+              )}
+              <button
+                type="submit" disabled={loading} data-testid="login-submit-button"
+                className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-heading font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center space-x-2 shadow-sm disabled:opacity-60"
+              >
+                <span>{loading ? "Memeriksa..." : "Masuk"}</span>
+                {!loading && <ArrowRight className="w-4 h-4" />}
+              </button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Akun Demo (klik untuk mengisi)</p>
+              <div className="flex flex-wrap gap-2">
+                {DEMO.map((d) => (
+                  <button
+                    key={d.email}
+                    data-testid={`demo-fill-${d.label.toLowerCase().replace(/[^a-z]/g, "-")}`}
+                    onClick={() => { setEmail(d.email); setPassword(d.password); }}
+                    className="text-xs font-semibold px-3.5 py-2 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition"
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <h2 className="font-heading font-extrabold text-2xl text-gray-900 tracking-tight">Masuk ke Akun Anda</h2>
-          <p className="text-sm text-gray-500 mt-1 mb-7">Gunakan akun sesuai peran Anda di lapangan.</p>
-
-          <form onSubmit={submit} className="space-y-4" data-testid="login-form">
-            <div>
-              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@baznas.id" data-testid="login-email-input"
-                  className="w-full text-sm border border-gray-300 rounded-xl pl-10 pr-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Kata Sandi</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••" data-testid="login-password-input"
-                  className="w-full text-sm border border-gray-300 rounded-xl pl-10 pr-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition"
-                />
-              </div>
-            </div>
-            {error && (
-              <div data-testid="login-error" className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                {error}
-              </div>
-            )}
-            <button
-              type="submit" disabled={loading} data-testid="login-submit-button"
-              className="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-heading font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center space-x-2 shadow-sm disabled:opacity-60"
-            >
-              <span>{loading ? "Memeriksa..." : "Masuk"}</span>
-              {!loading && <ArrowRight className="w-4 h-4" />}
-            </button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Akun Demo (klik untuk mengisi)</p>
-            <div className="flex flex-wrap gap-2">
-              {DEMO.map((d) => (
-                <button
-                  key={d.email}
-                  data-testid={`demo-fill-${d.label.toLowerCase().replace(/[^a-z]/g, "-")}`}
-                  onClick={() => { setEmail(d.email); setPassword(d.password); }}
-                  className="text-xs font-semibold px-3.5 py-2 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition"
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-5 flex justify-start" data-testid="login-powered-by-section">
+          <div className="mt-8 flex justify-center" data-testid="login-powered-by-section">
             <PoweredByChengSuya />
           </div>
         </motion.div>

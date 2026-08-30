@@ -40,6 +40,11 @@
 - Header/menu dashboard kini menampilkan kredit yang sama dalam bentuk chip ringkas agar tetap rapi di navigasi utama.
 - Komponen kredit dibuat reusable dengan data-testid unik untuk area login dan header.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 13) — Reposisi Branding Powered by
+- Branding login dipindahkan ke bagian paling bawah area form dan dipusatkan secara horizontal sesuai arahan terbaru.
+- Branding dashboard dipindahkan dari header ke sidebar profil, tepat di bawah blok informasi akun (Email dan Unit).
+- Styling chip branding disederhanakan menjadi tampilan abu terang yang lebih dekat dengan referensi visual yang diminta; verifikasi Playwright dan frontend testing agent keduanya lulus.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 7) — Chat Ide Otomatis Terbuka
 - Saat pengguna membuka sub-tab "Buat Ide Kegiatan", popup Chat AI kini langsung tampil otomatis tanpa perlu tombol "Buka Chat AI".
 - Tombol/menu pembuka chat dihapus agar alur ide lebih cepat dan ruang draft tetap bersih.
