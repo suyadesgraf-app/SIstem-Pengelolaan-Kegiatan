@@ -7,7 +7,7 @@ const STATUS_STYLE = {
   Perencanaan: "bg-sky-100 text-sky-800",
 };
 
-export default function ProjectCard({ project, index = 0, onOpen }) {
+export default function ProjectCard({ project, index = 0, onOpen, showCreator = false }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -37,6 +37,12 @@ export default function ProjectCard({ project, index = 0, onOpen }) {
             <span data-testid={`project-card-date-${project.nomor_indeks}`}>{project.date || "Tanggal belum diisi"}</span>
             <span className="text-gray-400" data-testid={`project-card-index-${project.nomor_indeks}`}>{project.nomor_indeks}</span>
           </div>
+          {showCreator && (
+            <div className="mt-1.5 text-[11px] text-gray-500" data-testid={`project-card-creator-${project.nomor_indeks}`}>
+              Dibuat oleh <span className="font-semibold text-gray-700">{project.created_by_name || "Tidak diketahui"}</span>
+              {project.created_by_email ? <span className="text-gray-400"> • {project.created_by_email}</span> : null}
+            </div>
+          )}
           <div className="flex items-center flex-wrap gap-1.5 mt-2" data-testid={`progress-${project.nomor_indeks}`}>
             {[["Ide", "idea"], ["RAB", "rab"], ["KAK", "kak"], ["Keuangan", "keuangan"], ["Laporan", "laporan"]].map(([label, key]) => (
               <span key={key} data-testid={`project-card-progress-${key}-${project.nomor_indeks}`} className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${project.progress?.[key] > 0 ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-400"}`}>

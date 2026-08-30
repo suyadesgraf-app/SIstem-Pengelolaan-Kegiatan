@@ -219,7 +219,19 @@ async def list_projects(user=Depends(get_current_user)):
     else:
         query = {}
     projects = await db.projects.find(query, {"_id": 0}).to_list(200)
+    creator_map = {}
+    if user["role"] == "superadmin" and projects:
+        creator_ids = list({p.get("created_by") for p in projects if p.get("created_by")})
+        creators = await db.users.find(
+            {"id": {"$in": creator_ids}},
+            {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1},
+        ).to_list(500)
+        creator_map = {c["id"]: c for c in creators}
     for p in projects:
+        if user["role"] == "superadmin":
+            creator = creator_map.get(p.get("created_by"))
+            p["created_by_name"] = creator.get("name") if creator else "Tidak diketahui"
+            p["created_by_email"] = creator.get("email") if creator else ""
         p["progress"] = {
             "idea": await db.activity_ideas.count_documents({"project_id": p["id"], "status": "submitted"}),
             "kak": await db.kaks.count_documents({"project_id": p["id"]}),

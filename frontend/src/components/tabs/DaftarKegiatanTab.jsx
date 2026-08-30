@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Search } from "lucide-react";
 import api from "@/lib/api";
 import ProjectCard from "@/components/ProjectCard";
+import { useAuth } from "@/context/AuthContext";
 
 const isCompletedProject = (project) => ["Selesai", "Diverifikasi"].includes(project.status);
 
@@ -14,6 +15,7 @@ const sortNewest = (items) => [...items].sort((a, b) => {
 });
 
 export default function DaftarKegiatanTab() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [query, setQuery] = useState("");
@@ -53,7 +55,7 @@ export default function DaftarKegiatanTab() {
 
       <div className="space-y-4" data-testid="completed-project-list">
         {visibleProjects.map((project, index) => (
-          <ProjectCard key={project.id} project={project} index={index} onOpen={(item) => navigate(`/kegiatan/${item.id}`)} />
+          <ProjectCard key={project.id} project={project} index={index} showCreator={user.role === "superadmin"} onOpen={(item) => navigate(`/kegiatan/${item.id}`)} />
         ))}
         {visibleProjects.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-10" data-testid="completed-project-list-empty">

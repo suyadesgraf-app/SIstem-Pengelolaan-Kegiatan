@@ -161,7 +161,7 @@ export default function DashboardTab() {
 
       <div className="space-y-4" data-testid="project-list">
         {filtered.map((p, i) => (
-          <ProjectCard key={p.id} project={p} index={i} onOpen={(item) => navigate(`/kegiatan/${item.id}`)} />
+          <ProjectCard key={p.id} project={p} index={i} showCreator={user.role === "superadmin"} onOpen={(item) => navigate(`/kegiatan/${item.id}`)} />
         ))}
         {filtered.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-8" data-testid="project-list-empty">Tidak ada kegiatan dalam proses pada filter ini.</p>

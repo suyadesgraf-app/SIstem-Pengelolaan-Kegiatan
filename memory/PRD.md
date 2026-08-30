@@ -45,6 +45,12 @@
 - Penghapusan membersihkan data terkait di MongoDB: ide kegiatan, RAB, KAK, laporan, realisasi/nota, serta menandai lampiran terkait sebagai `is_deleted`.
 - Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, curl hapus sebagai PIC OK, curl hapus sebagai Super Admin OK, dan Playwright memastikan ikon hapus + dialog konfirmasi tampil di workspace.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 19) — Info Pembuat Kegiatan untuk Super Admin
+- Kartu kegiatan pada akun Super Admin kini menampilkan informasi `Dibuat oleh` berisi nama dan email pembuat kegiatan.
+- Backend `/api/projects` menambahkan metadata `created_by_name` dan `created_by_email` khusus response Super Admin, dengan data user diambil tanpa `_id` MongoDB.
+- Tampilan ini hanya muncul untuk Super Admin; akun PIC/Admin tetap melihat daftar kegiatan seperti sebelumnya tanpa info pembuat.
+- Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, curl Super Admin mengembalikan nama/email pembuat, Playwright Super Admin menampilkan info pembuat, dan Playwright PIC memastikan info tersebut tidak muncul.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
