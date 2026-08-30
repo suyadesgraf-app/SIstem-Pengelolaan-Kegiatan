@@ -4,9 +4,32 @@ import { Lightbulb, Loader2, Pencil, Sparkles, Trash2 } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import ModelPicker from "@/components/ModelPicker";
 
-const KATEGORI_OPSI = ["Branding", "Perlengkapan", "Konsumsi"];
+const KATEGORI_OPSI = ["Branding", "Perlengkapan", "Konsumsi", "Transportasi", "Honorarium", "Operasional", "Dokumentasi", "Akomodasi"];
 const empty = { kategori: "Branding", kategoriManual: "", uraian: "", qty: "", satuanQty: "", frek: "", satuanFrek: "", harga: "" };
 const rp = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
+
+const SBM_RATES = [
+  { label: "Makan VIP", aliases: ["makan vip", "konsumsi vip"], kategori: "Konsumsi", satuanQty: "Orang", satuanFrek: "Kali", harga: 85000 },
+  { label: "Makan/Minum Kegiatan/Audensi", aliases: ["makan minum", "mamin", "jamuan", "audensi"], kategori: "Konsumsi", satuanQty: "Orang", satuanFrek: "Kali", harga: 85000 },
+  { label: "Uang Makan Peserta", aliases: ["makan", "nasi", "konsumsi peserta", "uang makan"], kategori: "Konsumsi", satuanQty: "Orang", satuanFrek: "Kali", harga: 50000 },
+  { label: "Kudapan VIP", aliases: ["snack vip", "kudapan vip"], kategori: "Konsumsi", satuanQty: "Orang", satuanFrek: "Kali", harga: 30000 },
+  { label: "Kudapan Peserta", aliases: ["snack", "kudapan", "coffee break"], kategori: "Konsumsi", satuanQty: "Orang", satuanFrek: "Kali", harga: 20000 },
+  { label: "Honor Narasumber Eksternal", aliases: ["narasumber", "pemateri", "honor", "honorarium"], kategori: "Honorarium", satuanQty: "Orang", satuanFrek: "Kegiatan", harga: 2500000 },
+  { label: "MC/Doa/Moderator", aliases: ["mc", "moderator", "doa", "pembawa acara"], kategori: "Honorarium", satuanQty: "Orang", satuanFrek: "Kegiatan", harga: 500000 },
+  { label: "Protokol/Ajudan/Humas", aliases: ["protokol", "ajudan", "humas"], kategori: "Operasional", satuanQty: "Orang", satuanFrek: "Kegiatan", harga: 200000 },
+  { label: "ME/OB/Security", aliases: ["security", "keamanan", "ob", "me"], kategori: "Operasional", satuanQty: "Orang", satuanFrek: "Kegiatan", harga: 100000 },
+  { label: "Sewa Kendaraan Pelaksanaan Kegiatan", aliases: ["sewa kendaraan", "rental mobil", "mobil kegiatan"], kategori: "Transportasi", satuanQty: "Unit", satuanFrek: "Hari", harga: 5000000 },
+  { label: "Sewa Kendaraan Operasional Kantor/Lapangan", aliases: ["sewa kendaraan bulanan", "kendaraan operasional"], kategori: "Transportasi", satuanQty: "Unit", satuanFrek: "Bulan", harga: 8000000 },
+  { label: "Hotel Rapat/Training Luar Kantor", aliases: ["hotel", "penginapan", "akomodasi"], kategori: "Akomodasi", satuanQty: "Orang", satuanFrek: "Hari", harga: 1500000 },
+  { label: "Pakaian Dinas", aliases: ["pakaian", "seragam", "baju"], kategori: "Perlengkapan", satuanQty: "Setel", satuanFrek: "Kegiatan", harga: 1500000 },
+];
+
+const normalizeText = (value = "") => value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+const findSbmRate = (value = "") => {
+  const text = normalizeText(value);
+  if (!text) return null;
+  return SBM_RATES.find((rate) => rate.aliases.some((alias) => text.includes(normalizeText(alias)))) || null;
+};
 
 export default function RabTab({ projectId = "" }) {
   const [items, setItems] = useState([]);
@@ -37,6 +60,25 @@ export default function RabTab({ projectId = "" }) {
 
   const grandTotal = items.reduce((s, it) => s + it.qty * it.frek * it.harga, 0);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const sbmMatch = useMemo(() => findSbmRate(form.uraian), [form.uraian]);
+  const hargaSatuan = Number(form.harga || 0);
+  const exceedsSbm = Boolean(sbmMatch && hargaSatuan > sbmMatch.harga);
+
+  const setUraian = (e) => {
+    const value = e.target.value;
+    const match = findSbmRate(value);
+    setForm((prev) => ({
+      ...prev,
+      uraian: value,
+      ...(match ? {
+        kategori: match.kategori,
+        kategoriManual: "",
+        satuanQty: match.satuanQty,
+        satuanFrek: match.satuanFrek,
+        harga: String(match.harga),
+      } : {}),
+    }));
+  };
 
   const useIdeaForRab = async () => {
     if (!idea) return toast.warning("Submit ide kegiatan terlebih dahulu");
@@ -58,6 +100,7 @@ export default function RabTab({ projectId = "" }) {
     const qty = parseInt(form.qty) || 0;
     const harga = parseInt(form.harga) || 0;
     if (!form.uraian.trim() || qty === 0 || harga === 0) return toast.error("Lengkapi data RAB!");
+    if (exceedsSbm) toast.warning(`${form.uraian} melebihi pagu ${sbmMatch.label}: maksimal ${rp(sbmMatch.harga)}`);
     try {
       await api.post("/rab/items", {
         kategori, uraian: form.uraian.trim(), qty,
@@ -140,7 +183,12 @@ export default function RabTab({ projectId = "" }) {
           </div>
           <div className="md:col-span-9">
             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Uraian / Nama Barang</label>
-            <input data-testid="rab-uraian-input" value={form.uraian} onChange={set("uraian")} placeholder="Contoh: Rollup Banner" className={inputCls} />
+            <input data-testid="rab-uraian-input" value={form.uraian} onChange={setUraian} placeholder="Contoh: Makan peserta / Snack / Honor narasumber" className={inputCls} />
+            {sbmMatch && (
+              <p data-testid="rab-sbm-suggestion" className="mt-1.5 text-[10px] font-semibold text-emerald-700">
+                Acuan SBM: {sbmMatch.label} maksimal {rp(sbmMatch.harga)} / {sbmMatch.satuanQty}/{sbmMatch.satuanFrek}
+              </p>
+            )}
           </div>
           <div className="md:col-span-2">
             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Qty</label>
@@ -162,6 +210,11 @@ export default function RabTab({ projectId = "" }) {
             <div className="flex-1">
               <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Harga Satuan (Rp)</label>
               <input data-testid="rab-harga-input" type="number" value={form.harga} onChange={set("harga")} placeholder="100000" className={inputCls} />
+              {exceedsSbm && (
+                <p data-testid="rab-sbm-warning" className="mt-1.5 text-[10px] font-bold text-red-600">
+                  Melebihi pagu SBM: maks {rp(sbmMatch.harga)}
+                </p>
+              )}
             </div>
             <button data-testid="rab-add-button" onClick={addItem} className="bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white font-bold py-2.5 px-5 rounded-lg text-xs transition shadow-sm h-[38px] whitespace-nowrap">+ Tambah</button>
           </div>

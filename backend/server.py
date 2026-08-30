@@ -835,6 +835,37 @@ class RabAiIn(BaseModel):
     provider: str = "gemini"
 
 
+SBM_RATE_REFERENCES = [
+    {"label": "Makan VIP", "aliases": ["makan vip", "konsumsi vip"], "kategori": "Konsumsi", "satuanQty": "Orang", "satuanFrek": "Kali", "harga": 85000},
+    {"label": "Makan/Minum Kegiatan/Audensi", "aliases": ["makan minum", "mamin", "jamuan", "audensi"], "kategori": "Konsumsi", "satuanQty": "Orang", "satuanFrek": "Kali", "harga": 85000},
+    {"label": "Uang Makan Peserta", "aliases": ["makan", "nasi", "konsumsi peserta", "uang makan"], "kategori": "Konsumsi", "satuanQty": "Orang", "satuanFrek": "Kali", "harga": 50000},
+    {"label": "Kudapan VIP", "aliases": ["snack vip", "kudapan vip"], "kategori": "Konsumsi", "satuanQty": "Orang", "satuanFrek": "Kali", "harga": 30000},
+    {"label": "Kudapan Peserta", "aliases": ["snack", "kudapan", "coffee break"], "kategori": "Konsumsi", "satuanQty": "Orang", "satuanFrek": "Kali", "harga": 20000},
+    {"label": "Honor Narasumber Eksternal", "aliases": ["narasumber", "pemateri", "honor", "honorarium"], "kategori": "Honorarium", "satuanQty": "Orang", "satuanFrek": "Kegiatan", "harga": 2500000},
+    {"label": "MC/Doa/Moderator", "aliases": ["mc", "moderator", "doa", "pembawa acara"], "kategori": "Honorarium", "satuanQty": "Orang", "satuanFrek": "Kegiatan", "harga": 500000},
+    {"label": "Protokol/Ajudan/Humas", "aliases": ["protokol", "ajudan", "humas"], "kategori": "Operasional", "satuanQty": "Orang", "satuanFrek": "Kegiatan", "harga": 200000},
+    {"label": "ME/OB/Security", "aliases": ["security", "keamanan", "ob", "me"], "kategori": "Operasional", "satuanQty": "Orang", "satuanFrek": "Kegiatan", "harga": 100000},
+    {"label": "Sewa Kendaraan Pelaksanaan Kegiatan", "aliases": ["sewa kendaraan", "rental mobil", "mobil kegiatan"], "kategori": "Transportasi", "satuanQty": "Unit", "satuanFrek": "Hari", "harga": 5000000},
+    {"label": "Sewa Kendaraan Operasional Kantor/Lapangan", "aliases": ["sewa kendaraan bulanan", "kendaraan operasional"], "kategori": "Transportasi", "satuanQty": "Unit", "satuanFrek": "Bulan", "harga": 8000000},
+    {"label": "Hotel Rapat/Training Luar Kantor", "aliases": ["hotel", "penginapan", "akomodasi"], "kategori": "Akomodasi", "satuanQty": "Orang", "satuanFrek": "Hari", "harga": 1500000},
+    {"label": "Pakaian Dinas", "aliases": ["pakaian", "seragam", "baju"], "kategori": "Perlengkapan", "satuanQty": "Setel", "satuanFrek": "Kegiatan", "harga": 1500000},
+]
+
+
+def _normalize_match_text(value: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", (value or "").lower())).strip()
+
+
+def _match_sbm_rate(uraian: str):
+    text = _normalize_match_text(uraian)
+    if not text:
+        return None
+    for rate in SBM_RATE_REFERENCES:
+        if any(_normalize_match_text(alias) in text for alias in rate["aliases"]):
+            return rate
+    return None
+
+
 @api.post("/projects/{pid}/idea/chat")
 async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_current_user)):
     project = await ensure_project_access(pid, user)
@@ -926,7 +957,9 @@ async def generate_rab_from_idea(pid: str, body: RabAiIn, user=Depends(get_curre
         "\"frek\": number, \"satuanFrek\": str, \"harga\": number}]}. "
         "Buat 3 sampai 8 item. Gunakan kategori yang ringkas seperti Branding, Perlengkapan, Konsumsi, "
         "Transportasi, Honorarium, Operasional, Dokumentasi, atau Lainnya. Harga dalam Rupiah integer, tanpa titik/koma. "
-        "Jangan membuat total, karena sistem akan menghitung otomatis."
+        "Jangan membuat total, karena sistem akan menghitung otomatis. "
+        "Gunakan acuan pagu berikut sebagai harga maksimum per item yang relevan: "
+        f"{json.dumps(SBM_RATE_REFERENCES, ensure_ascii=False)}"
     )
     prompt = (
         f"Nama kegiatan: {project.get('name', '')}\n"
@@ -947,15 +980,19 @@ async def generate_rab_from_idea(pid: str, body: RabAiIn, user=Depends(get_curre
         uraian = str(item.get("uraian", "") or "").strip()[:180]
         if not uraian:
             continue
+        matched_rate = _match_sbm_rate(uraian)
+        harga = max(0, int(float(item.get("harga") or 0)))
+        if matched_rate and harga > matched_rate["harga"]:
+            harga = matched_rate["harga"]
         clean_rows.append({
             "id": str(uuid.uuid4()),
-            "kategori": str(item.get("kategori", "Lainnya") or "Lainnya").strip()[:80],
+            "kategori": matched_rate["kategori"] if matched_rate else str(item.get("kategori", "Lainnya") or "Lainnya").strip()[:80],
             "uraian": uraian,
             "qty": max(1, int(float(item.get("qty") or 1))),
-            "satuanQty": str(item.get("satuanQty", "Paket") or "Paket").strip()[:40],
+            "satuanQty": matched_rate["satuanQty"] if matched_rate else str(item.get("satuanQty", "Paket") or "Paket").strip()[:40],
             "frek": max(1, int(float(item.get("frek") or 1))),
-            "satuanFrek": str(item.get("satuanFrek", "Kegiatan") or "Kegiatan").strip()[:40],
-            "harga": max(0, int(float(item.get("harga") or 0))),
+            "satuanFrek": matched_rate["satuanFrek"] if matched_rate else str(item.get("satuanFrek", "Kegiatan") or "Kegiatan").strip()[:40],
+            "harga": harga,
             "project_id": pid,
             "source": "ai_idea",
             "provider": prov,

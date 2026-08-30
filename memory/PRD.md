@@ -74,6 +74,13 @@
 - Frontend menampilkan model picker ringkas dan state loading `AI mengisi RAB...`; setelah berhasil tabel RAB otomatis reload dan total dihitung dari item baru.
 - Verifikasi berhasil: integration playbook AI dicek, `py_compile` backend OK, `yarn build` frontend OK, curl menghasilkan dan menyimpan 6 item RAB dari draft dummy, Playwright klik tombol AI RAB berhasil mengisi 7 row dengan total Rp 28.250.000 pada data uji lalu data uji dibersihkan.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 24) — Acuan Pagu SBM pada Input RAB
+- PDF `SK SBM (1).pdf` dianalisis dan beberapa acuan pagu umum diekstrak untuk form RAB: makan peserta, makan/minum, snack/kudapan, honor narasumber, MC/moderator, protokol/humas, security/OB/ME, sewa kendaraan, hotel/penginapan, dan pakaian/seragam.
+- Saat pengguna mengetik uraian seperti `Makan peserta`, sistem otomatis mengisi kategori, satuan, dan harga satuan sesuai pagu SBM yang cocok.
+- Jika pengguna mengubah harga satuan melebihi pagu, form menampilkan peringatan inline `Melebihi pagu SBM` beserta batas maksimalnya.
+- AI Auto-Input RAB juga diberi acuan pagu SBM dan backend menyesuaikan item AI yang cocok agar tidak melebihi pagu.
+- Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, Playwright memastikan input `Makan peserta` otomatis mengisi Rp 50.000 dan warning muncul saat harga diubah menjadi Rp 75.000.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
