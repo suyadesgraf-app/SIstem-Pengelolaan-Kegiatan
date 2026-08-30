@@ -90,6 +90,7 @@ export default function RabTab({ projectId = "" }) {
 
   const useIdeaForRab = async () => {
     if (!idea) return toast.warning("Submit ide kegiatan terlebih dahulu");
+    if (!window.confirm("Setujui Ai mengisi RAB otomatis dari draft ide kegiatan?")) return;
     setAiLoading(true);
     try {
       const response = await api.post(`/projects/${projectId}/ai/rab`, { provider });

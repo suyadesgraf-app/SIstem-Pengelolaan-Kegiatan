@@ -85,6 +85,13 @@
 - Nomor pada tabel RAB kini mengikuti urutan tampil setelah pengelompokan kategori, sehingga selalu berurutan 1, 2, 3, dan seterusnya meskipun item diinput belakangan.
 - Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan nomor baris RAB tampil kontinu.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 26) — Branding Ai dan Persetujuan Generate
+- Nama sistem di login, header, dan root API diubah menjadi `Sistem Integrasi Pengelolaan Kegiatan Berbasis Ai`.
+- Teks hero login diubah menjadi alur: `Pembuatan Ide/Perencanaan, Rencana Anggaran Kegiatan (RAB), Kerangka Acuan Kegiatan (KAK), Rekapitulasi Keuangan Kegiatan hingga Laporan Kegiatan berbasis Ai dengan CEPAT.`
+- Marquee nilai layanan diganti menjadi `CEPAT, CERDAS, EMPATI, PROFESIONAL, AMANAH, TRANSPARAN`.
+- Generate KAK, Generate Laporan Kegiatan, dan AI Auto-Input RAB kini meminta persetujuan pengguna melalui dialog konfirmasi sebelum memulai proses AI.
+- Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, Playwright memastikan teks branding baru tampil di login/header dan dialog persetujuan muncul sebelum generate KAK.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.

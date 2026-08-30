@@ -87,6 +87,7 @@ export default function KakTab({ project = null }) {
 
   const generate = async () => {
     if (!raw.trim()) return toast.warning("Masukkan poin mentah kegiatan terlebih dahulu");
+    if (!window.confirm("Setujui proses generate KAK berbasis Ai sekarang?")) return;
     setLoading(true);
     try {
       const r = await api.post("/ai/kak", { raw_text: raw, provider, project_id: project?.id });

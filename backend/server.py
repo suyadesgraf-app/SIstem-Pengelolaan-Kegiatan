@@ -198,7 +198,7 @@ async def read_all_notifications(user=Depends(get_current_user)):
 
 @api.get("/")
 async def root():
-    return {"message": "Sistem Integrasi Pengelolaan Kegiatan BAZNAS DKI"}
+    return {"message": "Sistem Integrasi Pengelolaan Kegiatan Berbasis Ai"}
 
 
 TINTS = [

@@ -39,7 +39,7 @@ export default function Header({ user, onLogout, activeMenu = "dashboard", onNav
             />
             <div className="hidden sm:block border-l border-gray-200 pl-3">
               <h1 className="font-heading font-bold text-xs leading-tight text-gray-800">BAZNAS BAZIS DKI</h1>
-              <p className="text-[10px] text-gray-500 font-medium">Sistem Integrasi Pengelolaan Program/Kegiatan</p>
+              <p className="text-[10px] text-gray-500 font-medium">Sistem Integrasi Pengelolaan Kegiatan Berbasis Ai</p>
             </div>
           </div>
           <nav className="flex items-center space-x-2 sm:space-x-5 text-sm font-medium text-gray-600">

@@ -15,8 +15,8 @@ const DEMO = [
   { label: "Relawan", email: "relawan@baznas.id", password: "relawan123" },
 ];
 
-const HEADLINES = ["Sistem Integrasi", "Pengelolaan", "Program & Kegiatan"];
-const MARQUEE = ["AMANAH", "TRANSPARAN", "AKUNTABEL", "PROFESIONAL", "BERKEADILAN", "SIAP MELAYANI"];
+const HEADLINES = ["Sistem Integrasi", "Pengelolaan Kegiatan", "Berbasis Ai"];
+const MARQUEE = ["CEPAT", "CERDAS", "EMPATI", "PROFESIONAL", "AMANAH", "TRANSPARAN"];
 
 export default function Login() {
   const { login } = useAuth();
@@ -84,8 +84,8 @@ export default function Login() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9, duration: 0.7 }}
           >
-            Satu pintu untuk perencanaan KAK & RAB, realisasi nota lapangan berbasis AI OCR,
-            hingga persetujuan laporan — cepat, tercatat, dan akuntabel.
+            Pembuatan Ide/Perencanaan, Rencana Anggaran Kegiatan (RAB), Kerangka Acuan Kegiatan (KAK),
+            Rekapitulasi Keuangan Kegiatan hingga Laporan Kegiatan berbasis Ai dengan CEPAT.
           </motion.p>
         </div>
         <div className="relative z-10 overflow-hidden border-t border-emerald-400/20 pt-5">
@@ -117,7 +117,7 @@ export default function Login() {
               />
               <div className="border-l border-gray-200 pl-3">
                 <p className="font-heading font-bold text-sm text-gray-800 leading-tight">BAZNAS BAZIS DKI</p>
-                <p className="text-[11px] text-gray-500 font-medium">Sistem Integrasi Pengelolaan Program/Kegiatan</p>
+                <p className="text-[11px] text-gray-500 font-medium">Sistem Integrasi Pengelolaan Kegiatan Berbasis Ai</p>
               </div>
             </div>
 

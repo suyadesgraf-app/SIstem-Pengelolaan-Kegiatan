@@ -169,6 +169,7 @@ export default function LaporanTab({ project = null, onProjectUpdate = null }) {
 
   const generate = async () => {
     if (!points.trim()) return toast.warning("Masukkan poin mentah lapangan terlebih dahulu");
+    if (!window.confirm("Setujui proses generate Laporan Kegiatan berbasis Ai sekarang?")) return;
     setLoading(true);
     setAiError("");
     try {
