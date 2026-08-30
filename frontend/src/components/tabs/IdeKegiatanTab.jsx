@@ -66,9 +66,18 @@ const useEdgeAutoScroll = () => {
     if (!speed) stopAutoScroll();
   }, [moveAutoScroll, stopAutoScroll]);
 
+  const handleWheel = useCallback((event) => {
+    const container = containerRef.current;
+    if (!container || !event.deltaY) return;
+
+    const before = container.scrollTop;
+    container.scrollTop += event.deltaY;
+    if (before !== container.scrollTop) event.preventDefault();
+  }, []);
+
   useEffect(() => stopAutoScroll, [stopAutoScroll]);
 
-  return { containerRef, onMouseMove: handleMouseMove, onMouseLeave: stopAutoScroll };
+  return { containerRef, onMouseMove: handleMouseMove, onMouseLeave: stopAutoScroll, onWheel: handleWheel };
 };
 
 export const draftToKakText = (draft = {}) => FIELDS
@@ -169,7 +178,8 @@ export default function IdeKegiatanTab({ project }) {
           ref={chatScroll.containerRef}
           onMouseMove={chatScroll.onMouseMove}
           onMouseLeave={chatScroll.onMouseLeave}
-          className="h-[460px] overflow-y-auto p-5 space-y-3 bg-gradient-to-b from-gray-50 to-white"
+          onWheel={chatScroll.onWheel}
+          className="h-[460px] overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide p-5 space-y-3 bg-gradient-to-b from-gray-50 to-white"
           data-testid="idea-chat-messages"
           aria-label="Pesan chat ide, arahkan kursor ke tepi atas atau bawah untuk gulir otomatis"
         >
@@ -215,7 +225,8 @@ export default function IdeKegiatanTab({ project }) {
           ref={draftScroll.containerRef}
           onMouseMove={draftScroll.onMouseMove}
           onMouseLeave={draftScroll.onMouseLeave}
-          className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto pr-1"
+          onWheel={draftScroll.onWheel}
+          className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide pr-1"
           data-testid="idea-draft-fields"
           aria-label="Kolom draft ide, arahkan kursor ke tepi atas atau bawah untuk gulir otomatis"
         >
