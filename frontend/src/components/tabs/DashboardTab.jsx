@@ -112,7 +112,7 @@ export default function DashboardTab() {
       </div>
 
       <div className="flex justify-between items-center mb-2 mt-4 flex-wrap gap-2">
-        <h2 className="font-heading text-lg font-bold text-gray-800" data-testid="active-projects-heading">Kegiatan Dalam Proses Terbaru</h2>
+        <h2 className="font-heading text-lg font-bold text-gray-800" data-testid="active-projects-heading">Kegiatan Dalam Proses</h2>
         <div className="flex space-x-2 items-center">
           {canCreate && (
             <button

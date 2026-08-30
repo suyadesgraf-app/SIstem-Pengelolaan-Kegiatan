@@ -58,6 +58,10 @@
 - Generate Laporan AI juga memastikan nomor indeks wajib diisi dan menyimpan nomor tersebut ke proyek sebelum dokumen laporan disimpan.
 - Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, curl membuktikan kegiatan baru dibuat tanpa nomor indeks lalu nomor dapat disimpan dari endpoint laporan, dan Playwright memastikan dashboard/workspace tidak menampilkan nomor otomatis serta input laporan kosong sebelum diisi.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 21) — Penyesuaian Judul Dashboard
+- Judul daftar proses di dashboard diubah dari `Kegiatan Dalam Proses Terbaru` menjadi `Kegiatan Dalam Proses` sesuai permintaan pengguna.
+- Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan heading dashboard sudah berubah.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
