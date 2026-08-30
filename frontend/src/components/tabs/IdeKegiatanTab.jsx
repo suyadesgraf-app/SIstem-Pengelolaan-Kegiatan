@@ -34,6 +34,7 @@ export default function IdeKegiatanTab({ project }) {
   const [draft, setDraft] = useState(emptyDraft);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState(null);
   const [status, setStatus] = useState("draft");
   const [provider, setProvider] = useState("gemini");
   const [loading, setLoading] = useState(false);
@@ -64,19 +65,36 @@ export default function IdeKegiatanTab({ project }) {
 
   const sendMessage = async (text = input) => {
     const clean = text.trim();
-    if (!clean) return toast.warning("Tulis ide atau kebutuhan kegiatan terlebih dahulu");
+    const selectedFile = attachmentFile;
+    if (!clean && !selectedFile) return toast.warning("Tulis pesan atau pilih lampiran terlebih dahulu");
+    if (selectedFile && !(selectedFile.type === "application/pdf" || selectedFile.type.startsWith("image/") || selectedFile.name.toLowerCase().endsWith(".pdf"))) {
+      return toast.warning("Lampiran chat hanya mendukung dokumen PDF atau foto");
+    }
+    if (selectedFile && selectedFile.size > 15 * 1024 * 1024) return toast.warning("Ukuran lampiran maksimal 15MB");
     setInput("");
+    setAttachmentFile(null);
     setLoading(true);
-    const optimistic = { id: `local-${Date.now()}`, role: "user", content: clean };
-    setMessages((prev) => [...prev.filter((m) => m.id !== "greeting"), optimistic]);
+    const message = clean || `Saya melampirkan ${selectedFile.name} untuk menjadi bahan ide kegiatan.`;
+    let optimisticId = null;
+    let uploadedAttachment = null;
     try {
-      const r = await api.post(`/projects/${project.id}/idea/chat`, { message: clean, session_id: sessionId, provider, draft });
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        const upload = await api.post(`/files/upload?kind=idea_chat&label=${encodeURIComponent(selectedFile.name)}&ref=${encodeURIComponent(project.id)}`, formData);
+        uploadedAttachment = { id: upload.data.id, filename: upload.data.original_filename, content_type: upload.data.content_type, size: upload.data.size };
+      }
+      optimisticId = `local-${Date.now()}`;
+      const optimistic = { id: optimisticId, role: "user", content: message, attachments: uploadedAttachment ? [uploadedAttachment] : [] };
+      setMessages((prev) => [...prev.filter((m) => m.id !== "greeting"), optimistic]);
+      const r = await api.post(`/projects/${project.id}/idea/chat`, { message, session_id: sessionId, provider, draft, attachments: uploadedAttachment ? [uploadedAttachment] : [] });
       setDraft({ ...emptyDraft, ...(r.data.draft || {}) });
       setMessages(r.data.messages || []);
       setSessionId(r.data.session_id || sessionId);
       setStatus(r.data.status || "draft");
     } catch (e) {
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      if (optimisticId) setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      if (uploadedAttachment) api.delete(`/files/${uploadedAttachment.id}`).catch(() => {});
       toast.error(formatApiError(e));
     } finally {
       setLoading(false);
@@ -140,7 +158,7 @@ export default function IdeKegiatanTab({ project }) {
           </button>
         </div>
       </section>
-      {!chatMinimized && <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} loading={loading} onSend={sendMessage} onMinimize={minimizeChat} position={chatPosition} setPosition={setChatPosition} />}
+      {!chatMinimized && <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} attachmentFile={attachmentFile} setAttachmentFile={setAttachmentFile} loading={loading} onSend={sendMessage} onMinimize={minimizeChat} position={chatPosition} setPosition={setChatPosition} />}
       {chatMinimized && <button data-testid="idea-chat-restore-button" onClick={restoreChat} className="fixed bottom-5 right-5 z-[110] inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-800 active:scale-95"><span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-200" />Chat AI Ide Kegiatan</button>}
     </div>
   );

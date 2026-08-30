@@ -9,7 +9,7 @@ import uuid
 import base64
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 
 import bcrypt
 import jwt
@@ -562,6 +562,8 @@ async def upload_file(file: UploadFile = File(...), kind: str = "lampiran", labe
                       ref: str = "", user=Depends(get_current_user)):
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
     ct = file.content_type or "application/octet-stream"
+    if kind == "idea_chat" and not (ct == "application/pdf" or ct.startswith("image/") or ext == "pdf"):
+        raise HTTPException(400, "Lampiran chat hanya mendukung dokumen PDF atau foto")
     data = await file.read()
     if len(data) > 15 * 1024 * 1024:
         raise HTTPException(413, "Ukuran file maksimal 15MB")
@@ -682,19 +684,47 @@ def parse_llm_json(raw: str):
     return json.loads(match.group(0))
 
 
+class IdeaChatAttachmentIn(BaseModel):
+    id: str
+    filename: str = ""
+    content_type: str = ""
+    size: int = 0
+
+
 class IdeaChatIn(BaseModel):
     message: str
     session_id: str = ""
     provider: str = "gemini"
     draft: Dict[str, Any] = {}
+    attachments: List[IdeaChatAttachmentIn] = []
 
 
 @api.post("/projects/{pid}/idea/chat")
 async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_current_user)):
     project = await ensure_project_access(pid, user)
     message = body.message.strip()
-    if not message:
+    if not message and not body.attachments:
         raise HTTPException(400, "Pesan chat wajib diisi")
+    if len(body.attachments) > 3:
+        raise HTTPException(400, "Maksimal tiga lampiran untuk setiap pesan")
+    attachment_ids = [item.id for item in body.attachments]
+    if len(attachment_ids) != len(set(attachment_ids)):
+        raise HTTPException(400, "Lampiran chat tidak boleh duplikat")
+    attachments = []
+    if attachment_ids:
+        records = await db.files.find({
+            "id": {"$in": attachment_ids}, "user_id": user["id"], "kind": "idea_chat",
+            "ref": pid, "is_deleted": False,
+        }, {"_id": 0, "id": 1, "original_filename": 1, "content_type": 1, "size": 1, "storage_path": 1}).to_list(3)
+        if len(records) != len(attachment_ids):
+            raise HTTPException(400, "Satu atau lebih lampiran chat tidak valid")
+        records_by_id = {record["id"]: record for record in records}
+        attachments = [{
+            "id": records_by_id[file_id]["id"],
+            "filename": records_by_id[file_id].get("original_filename", "Lampiran"),
+            "content_type": records_by_id[file_id].get("content_type", "application/octet-stream"),
+            "size": records_by_id[file_id].get("size", 0),
+        } for file_id in attachment_ids]
     prov, model = resolve_model(body.provider, "doc")
     session_id = body.session_id or str(uuid.uuid4())
     existing = await db.activity_ideas.find_one({"project_id": pid}, {"_id": 0})
@@ -715,6 +745,7 @@ async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_curren
         f"Lokasi awal: {project.get('loc', '-')}; tanggal awal: {project.get('date', '-')}\n\n"
         f"Draft saat ini:\n{idea_to_prompt(current_draft)}\n\n"
         f"Riwayat chat ringkas JSON:\n{json.dumps(history, ensure_ascii=False)}\n\n"
+        f"Lampiran PIC terbaru (nama file):\n{json.dumps(attachments, ensure_ascii=False)}\n\n"
         f"Pesan PIC terbaru:\n{message}"
     )
     try:
@@ -727,7 +758,7 @@ async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_curren
         logger.error(f"Idea chat error: {e}")
         raise HTTPException(500, "AI gagal membantu menyusun ide, coba lagi")
     now = datetime.now(timezone.utc).isoformat()
-    user_msg = {"id": str(uuid.uuid4()), "role": "user", "content": message, "created_at": now}
+    user_msg = {"id": str(uuid.uuid4()), "role": "user", "content": message, "attachments": attachments, "created_at": now}
     assistant_msg = {"id": str(uuid.uuid4()), "role": "assistant", "content": reply, "created_at": now,
                      "next_questions": [str(q)[:240] for q in next_questions[:3]]}
     messages = (existing or {}).get("messages", []) + [user_msg, assistant_msg]

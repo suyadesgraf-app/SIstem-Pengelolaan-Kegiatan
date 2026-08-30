@@ -21,6 +21,12 @@
 - AI: emergentintegrations LlmChat (stream_message), EMERGENT_LLM_KEY di backend/.env
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 10) — Tema Putih & Lampiran Chat Ide
+- Popup Chat Ide dikembalikan ke tema putih yang menyatu dengan UI workspace BAZNAS, dengan panel pesan abu-abu muda dan aksen emerald.
+- Lebar popup diperkecil dari 430px menjadi 300px (sekitar 30%) dan tinggi maksimum diperkecil dari 840px menjadi 756px (sekitar 10%).
+- Composer pesan dipadatkan menjadi satu baris; pengguna dapat melampirkan PDF atau foto, melihat nama lampiran, dan membatalkannya sebelum mengirim.
+- Lampiran chat disimpan nyata melalui object storage, dibatasi PDF/foto dan 15MB, dicatat pada riwayat percakapan, serta dapat dibuka kembali dari bubble pesan.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 7) — Chat Ide Otomatis Terbuka
 - Saat pengguna membuka sub-tab "Buat Ide Kegiatan", popup Chat AI kini langsung tampil otomatis tanpa perlu tombol "Buka Chat AI".
 - Tombol/menu pembuka chat dihapus agar alur ide lebih cepat dan ruang draft tetap bersih.
@@ -97,6 +103,7 @@
 - Sesi 7: Playwright smoke test OK untuk login PIC → buka workspace kegiatan → klik sub-tab Ide → popup chat tampil otomatis tanpa tombol pembuka; panel chat tampil stabil dan siap digulir saat isi melebihi tinggi panel.
 - Sesi 8: Playwright smoke test OK untuk login PIC → buka workspace → klik tab Ide → quick reply terkirim otomatis → chat auto-scroll ke bawah; verifikasi scroll panel dengan roda mouse berhasil (`scrollTop` berubah 5068 → 4068 → 5068); minimize dan restore popup chat juga berhasil.
 - Sesi 9: Playwright smoke test OK untuk login PIC → buka workspace → tab Ide menampilkan popup chat dengan styling gelap ala referensi Emmy; render header, bubble pesan, dan composer baru tampil normal.
+- Sesi 10: Build frontend dan `py_compile` backend OK. Playwright login PIC → workspace → Chat Ide berhasil memverifikasi popup putih 300px serta pemilihan PDF. curl berhasil mengunggah lalu menghapus PDF uji; validasi API menolak referensi lampiran chat yang tidak sah (400).
 
 ## Backlog Prioritas
 - P0: Tidak ada blocker aktif pada alur utama saat ini.
