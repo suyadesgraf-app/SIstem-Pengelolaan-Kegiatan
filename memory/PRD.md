@@ -21,6 +21,11 @@
 - AI: emergentintegrations LlmChat (stream_message), EMERGENT_LLM_KEY di backend/.env
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 7) — Chat Ide Otomatis Terbuka
+- Saat pengguna membuka sub-tab "Buat Ide Kegiatan", popup Chat AI kini langsung tampil otomatis tanpa perlu tombol "Buka Chat AI".
+- Tombol/menu pembuka chat dihapus agar alur ide lebih cepat dan ruang draft tetap bersih.
+- Panel isi chat diperkuat untuk gulir alami dengan roda mouse, touchpad, dan sentuhan melalui `overflow-y-auto`, `min-h-0`, dan `WebkitOverflowScrolling`.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 5) — Alur Ide Kegiatan dengan Chat AI
 - Alur workspace diperbarui menjadi: Buat Ide Kegiatan → RAB → KAK → Laporan Keuangan → Laporan Kegiatan.
 - Tab "Buat Ide Kegiatan" memiliki Chat AI multi-turn di kiri dan Draft Ide di kanan; chat memakai `session_id`, Gemini 3.1 Pro via emergentintegrations, serta menyimpan riwayat dan draft ke MongoDB `activity_ideas`.
@@ -79,6 +84,7 @@
 - Belum diverifikasi di browser: upload foto nota langsung di UI (endpoint OCR sudah terbukti via curl), export PDF/Excel (mock toast)
 - Sesi 4: py_compile backend OK; yarn build OK dengan warning lama unrelated di KeuanganTab/RabTab/RelawanApp; API e2e OK untuk upload → replace → delete lampiran, submit, revisi dengan pesan, dan notifikasi PIC; screenshot Playwright OK untuk kolom pesan revisi serta ikon unduh/edit/batalkan lampiran.
 - Sesi 5: testing_agent backend+frontend berhasil untuk fitur Ide Kegiatan tetapi menemukan auth lockout lama; diperbaiki dan diverifikasi ulang. Self-test: real Gemini chat ide OK, save/submit draft OK, progress Ide OK, RAB/KAK mengambil bahan ide OK, py_compile OK, yarn build compiled successfully, pytest 6/6 passed, Playwright smoke test OK. Console final hanya 401 normal dari pengecekan /auth/me sebelum login; warning chart hilang setelah Recharts diganti grafik CSS.
+- Sesi 7: Playwright smoke test OK untuk login PIC → buka workspace kegiatan → klik sub-tab Ide → popup chat tampil otomatis tanpa tombol pembuka; panel chat tampil stabil dan siap digulir saat isi melebihi tinggi panel.
 
 ## Backlog Prioritas
 - P0: Tidak ada blocker aktif pada alur utama saat ini.

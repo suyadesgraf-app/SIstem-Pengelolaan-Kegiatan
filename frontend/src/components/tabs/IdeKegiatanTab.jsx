@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Bot, CheckCircle2, ClipboardCheck, Lightbulb, MessageCircle, Save } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Lightbulb, Save } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { IdeaChatPopup } from "@/components/tabs/IdeaChatPopup";
 
@@ -38,8 +38,6 @@ export default function IdeKegiatanTab({ project }) {
   const [provider, setProvider] = useState("gemini");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMinimized, setChatMinimized] = useState(false);
   const [chatPosition, setChatPosition] = useState({ x: 0, y: 0 });
 
   const greeting = useMemo(() => ({
@@ -60,12 +58,6 @@ export default function IdeKegiatanTab({ project }) {
   }, [greeting, project?.id]);
 
   useEffect(() => { load(); }, [load]);
-
-  useEffect(() => {
-    const handleEscape = (event) => { if (event.key === "Escape") setChatOpen(false); };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, []);
 
   const updateDraft = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
 
@@ -112,10 +104,6 @@ export default function IdeKegiatanTab({ project }) {
     finally { setSaving(false); }
   };
 
-  const openChat = () => { setChatMinimized(false); setChatOpen(true); };
-  const minimizeChat = () => { setChatOpen(false); setChatMinimized(true); };
-  const closeChat = () => { setChatOpen(false); setChatMinimized(false); };
-
   return (
     <div className="relative" data-testid="ide-kegiatan-tab">
       <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5" data-testid="idea-draft-panel">
@@ -124,10 +112,7 @@ export default function IdeKegiatanTab({ project }) {
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><Lightbulb className="w-3.5 h-3.5" /> Draft Ide</p>
             <h2 className="font-heading text-lg font-bold text-gray-900 mt-1" data-testid="idea-draft-heading">Bahan Awal RAB & KAK</h2>
           </div>
-          <div className="flex items-center gap-2">
-            <span data-testid="idea-draft-status" className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${status === "submitted" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status === "submitted" ? "Sudah Disubmit" : "Draft"}</span>
-            <button data-testid="idea-chat-open-button" onClick={openChat} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-800 active:scale-95"><MessageCircle className="h-4 w-4" />Buka Chat AI</button>
-          </div>
+          <span data-testid="idea-draft-status" className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${status === "submitted" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{status === "submitted" ? "Sudah Disubmit" : "Draft"}</span>
         </div>
         <div
           className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide pr-1"
@@ -151,8 +136,7 @@ export default function IdeKegiatanTab({ project }) {
           </button>
         </div>
       </section>
-      {chatOpen && <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} loading={loading} onSend={sendMessage} onMinimize={minimizeChat} onClose={closeChat} position={chatPosition} setPosition={setChatPosition} />}
-      {chatMinimized && <button data-testid="idea-chat-restore-button" onClick={openChat} className="fixed bottom-5 right-5 z-[110] inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-800 active:scale-95"><Bot className="h-5 w-5" />Buka Chat AI</button>}
+      <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} loading={loading} onSend={sendMessage} position={chatPosition} setPosition={setChatPosition} />
     </div>
   );
 }
