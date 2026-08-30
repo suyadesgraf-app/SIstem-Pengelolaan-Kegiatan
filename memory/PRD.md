@@ -137,8 +137,10 @@
 - Sesi 11: py_compile backend OK, yarn build frontend OK. curl login PIC + POST `/api/ai/report` kini mengembalikan 402 dengan detail penyebab budget AI habis. Playwright login PIC → workspace → tab Laporan → generate menampilkan alert `laporan-ai-error` berisi instruksi tambah balance/auto top up.
 - Sesi 12: yarn build frontend berhasil. Playwright memverifikasi kredit tampil di login dan header dashboard, href sesuai link Instagram yang diminta, dan klik ikon/link membuka Instagram di tab baru.
 
+- Sesi 13 (Jun 2026): Fallback Gemini → Universal Key diaktifkan (`GEMINI_USE_EMERGENT_FALLBACK=True` di server.py) karena `GEMINI_API_KEY` pengguna kena 402/503. curl login PIC OK: `/api/ai/kak` menghasilkan KAK lengkap dan `/api/ai/report` menghasilkan LPJ BAB I-IV. Fungsi AI inti pulih. Balik ke key pengguna cukup set flag ke False saat key aktif.
+
 ## Backlog Prioritas
-- P0: Pulihkan saldo Universal Key AI atau ganti key AI agar generate Laporan/KAK/OCR/Chat AI berjalan kembali.
+- P0 (SELESAI): Fungsi AI pulih via fallback Universal Key untuk Gemini. Saat GEMINI_API_KEY pengguna aktif, set GEMINI_USE_EMERGENT_FALLBACK=False.
 - P1: Notifikasi Nota Baru ke PIC saat relawan menyimpan nota.
 - P2: Offline queue PWA untuk blank spot, tanda tangan digital, filter/cari realisasi lanjutan, multi-kegiatan per RAB, opsi mobile native Expo/React Native di atas API yang sudah ada.
 - P2: Cetak Label Arsip PDF per kegiatan dengan QR code.

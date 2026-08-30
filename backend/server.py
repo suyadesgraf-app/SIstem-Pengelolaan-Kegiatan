@@ -26,7 +26,9 @@ db = client[os.environ["DB_NAME"]]
 
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
-LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
@@ -659,10 +661,29 @@ def resolve_model(provider: str, kind: str):
     return provider, MODEL_MAP[provider][kind]
 
 
+def provider_label(provider: str) -> str:
+    return "Gemini" if provider == "gemini" else "OpenAI"
+
+
+# Sementara: Gemini pakai Universal Key sampai GEMINI_API_KEY pengguna aktif.
+GEMINI_USE_EMERGENT_FALLBACK = True
+
+
+def resolve_ai_api_key(provider: str):
+    if provider == "gemini" and GEMINI_API_KEY and not GEMINI_USE_EMERGENT_FALLBACK:
+        return GEMINI_API_KEY, "provider"
+    if provider == "openai" and OPENAI_API_KEY:
+        return OPENAI_API_KEY, "provider"
+    if EMERGENT_LLM_KEY:
+        return EMERGENT_LLM_KEY, "emergent"
+    raise HTTPException(500, f"Konfigurasi API key untuk {provider_label(provider)} belum tersedia di server")
+
+
 async def llm_complete(system: str, text: str, image_b64: Optional[str] = None,
-                       provider: str = "openai", model: str = "gpt-5.4",
+                       provider: str = "gemini", model: str = "gemini-3.1-pro-preview",
                        session_id: Optional[str] = None) -> str:
-    chat = LlmChat(api_key=LLM_KEY, session_id=session_id or str(uuid.uuid4()),
+    api_key, _ = resolve_ai_api_key(provider)
+    chat = LlmChat(api_key=api_key, session_id=session_id or str(uuid.uuid4()),
                    system_message=system).with_model(provider, model)
     kwargs = {"text": text}
     if image_b64:
@@ -684,16 +705,29 @@ def parse_llm_json(raw: str):
     return json.loads(match.group(0))
 
 
-def raise_ai_http_error(err: Exception, action: str):
+def raise_ai_http_error(err: Exception, action: str, provider: str = "gemini"):
     message = str(err).lower()
+    _, key_source = resolve_ai_api_key(provider)
+    label = provider_label(provider)
     if "budget has been exceeded" in message or "max budget" in message:
+        if key_source == "emergent":
+            raise HTTPException(
+                402,
+                "Saldo AI Universal Key habis. Tambahkan balance di Profile → Manage plan → Universal Key → Add Balance, atau aktifkan auto top up lalu coba generate lagi."
+            )
         raise HTTPException(
             402,
-            "Saldo AI Universal Key habis. Tambahkan balance di Profile → Manage plan → Universal Key → Add Balance, atau aktifkan auto top up lalu coba generate lagi."
+            f"Kuota atau billing API {label} habis/bermasalah. Periksa API key dan billing akun {label} Anda lalu coba lagi."
         )
-    if "ratelimit" in message or "rate limit" in message:
-        raise HTTPException(429, "Layanan AI sedang membatasi permintaan. Tunggu sebentar lalu coba lagi.")
-    raise HTTPException(500, f"AI gagal {action}, coba lagi")
+    if any(keyword in message for keyword in ["insufficient_quota", "exceeded your current quota", "quota", "billing", "credit balance"]):
+        raise HTTPException(402, f"Kuota atau billing API {label} habis/bermasalah. Periksa API key dan billing akun {label} Anda lalu coba lagi.")
+    if any(keyword in message for keyword in ["invalid api key", "incorrect api key", "api key not valid", "unauthorized", "authentication", "permission denied"]):
+        raise HTTPException(401, f"API key {label} tidak valid atau tidak punya akses ke model yang dipilih.")
+    if any(keyword in message for keyword in ["service unavailable", "currently experiencing high demand", '"status": "unavailable"']):
+        raise HTTPException(503, f"Layanan AI {label} sedang sibuk atau mengalami lonjakan trafik. Coba lagi beberapa saat.")
+    if any(keyword in message for keyword in ["ratelimit", "rate limit", "too many requests", "resource_exhausted"]):
+        raise HTTPException(429, f"Layanan AI {label} sedang membatasi permintaan. Tunggu sebentar lalu coba lagi.")
+    raise HTTPException(500, f"AI {label} gagal {action}, coba lagi")
 
 
 class IdeaChatAttachmentIn(BaseModel):
@@ -768,7 +802,7 @@ async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_curren
         next_questions = data.get("next_questions") if isinstance(data.get("next_questions"), list) else []
     except Exception as e:
         logger.error(f"Idea chat error: {e}")
-        raise_ai_http_error(e, "membantu menyusun ide")
+        raise_ai_http_error(e, "membantu menyusun ide", prov)
     now = datetime.now(timezone.utc).isoformat()
     user_msg = {"id": str(uuid.uuid4()), "role": "user", "content": message, "attachments": attachments, "created_at": now}
     assistant_msg = {"id": str(uuid.uuid4()), "role": "assistant", "content": reply, "created_at": now,
@@ -786,7 +820,7 @@ async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_curren
 
 class OcrIn(BaseModel):
     image_base64: str
-    provider: str = "openai"
+    provider: str = "gemini"
 
 
 @api.post("/ai/ocr")
@@ -802,8 +836,13 @@ async def ocr_nota(body: OcrIn, user=Depends(get_current_user)):
         return parse_llm_json(raw)
     except Exception as e:
         logger.error(f"OCR error: {e}")
-        if "budget has been exceeded" in str(e).lower() or "max budget" in str(e).lower():
-            raise_ai_http_error(e, "membaca nota")
+        if any(keyword in str(e).lower() for keyword in [
+            "budget has been exceeded", "max budget", "insufficient_quota", "quota", "billing",
+            "invalid api key", "incorrect api key", "api key not valid", "unauthorized",
+            "authentication", "permission denied", "ratelimit", "rate limit", "too many requests", "resource_exhausted",
+            "service unavailable", "currently experiencing high demand", '"status": "unavailable"'
+        ]):
+            raise_ai_http_error(e, "membaca nota", prov)
         raise HTTPException(422, "AI tidak dapat membaca nota. Isi manual atau coba foto lebih jelas.")
 
 
@@ -815,7 +854,7 @@ KAK_SECTIONS = ["1. Pendahuluan", "2. Deskripsi Program", "3. Landasan Hukum", "
 
 class KakIn(BaseModel):
     raw_text: str
-    provider: str = "openai"
+    provider: str = "gemini"
     project_id: Optional[str] = None
 
 
@@ -837,14 +876,14 @@ async def generate_kak(body: KakIn, user=Depends(get_current_user)):
         return data
     except Exception as e:
         logger.error(f"KAK error: {e}")
-        raise_ai_http_error(e, "menyusun KAK")
+        raise_ai_http_error(e, "menyusun KAK", prov)
 
 
 class ReportIn(BaseModel):
     nomor_indeks: str
     points: str
     kak_name: Optional[str] = None
-    provider: str = "openai"
+    provider: str = "gemini"
     project_id: Optional[str] = None
 
 
@@ -870,7 +909,7 @@ async def generate_report(body: ReportIn, user=Depends(get_current_user)):
         return data
     except Exception as e:
         logger.error(f"Report error: {e}")
-        raise_ai_http_error(e, "menyusun laporan")
+        raise_ai_http_error(e, "menyusun laporan", prov)
 
 
 @api.get("/projects/{pid}/kaks")
@@ -1180,7 +1219,7 @@ def init_storage(force: bool = False):
     global storage_key
     if storage_key and not force:
         return storage_key
-    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": LLM_KEY}, timeout=30)
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_LLM_KEY}, timeout=30)
     resp.raise_for_status()
     storage_key = resp.json()["storage_key"]
     return storage_key

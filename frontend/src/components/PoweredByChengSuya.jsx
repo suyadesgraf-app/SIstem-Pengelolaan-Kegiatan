@@ -17,7 +17,7 @@ export const PoweredByChengSuya = ({ context = "login" }) => (
       data-testid={context === "sidebar" ? "powered-by-cheng-suya-sidebar-prefix" : "powered-by-cheng-suya-login-prefix"}
       className="inline"
     >
-      Powered by
+      Developed by
     </span>
     <Instagram
       data-testid={context === "sidebar" ? "powered-by-cheng-suya-sidebar-icon" : "powered-by-cheng-suya-login-icon"}
