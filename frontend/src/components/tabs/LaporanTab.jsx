@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, Upload, Send, FileCheck2 } from "lucide-react";
+import { Download, FileCheck2, Pencil, Send, Sparkles, Trash2, Upload } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import ModelPicker from "@/components/ModelPicker";
 
@@ -23,8 +23,33 @@ export default function LaporanTab({ project = null }) {
   const [uploaded, setUploaded] = useState({});
   const [files, setFiles] = useState([]);
   const [activeLamp, setActiveLamp] = useState(null);
+  const [replaceFileId, setReplaceFileId] = useState(null);
   const kakFileRef = useRef(null);
   const lampFileRef = useRef(null);
+  const replaceFileRef = useRef(null);
+  const canEditAttachments = project?.status === "Perencanaan";
+
+  const applyFileState = useCallback((rows = []) => {
+    const up = {};
+    let kak = "";
+    rows.forEach((f) => {
+      if (f.kind === "kak_ref" && !kak) kak = f.original_filename;
+      if (f.kind === "lampiran") {
+        const idx = LAMPIRAN.indexOf(f.label);
+        if (idx >= 0) up[idx] = true;
+      }
+    });
+    setFiles(rows);
+    setUploaded(up);
+    setKakName(kak);
+  }, []);
+
+  const loadFiles = useCallback(() => {
+    if (!nomorIndeks) return Promise.resolve();
+    return api.get(`/files?ref=${encodeURIComponent(nomorIndeks)}`).then((r) => {
+      applyFileState(r.data);
+    }).catch(() => {});
+  }, [applyFileState, nomorIndeks]);
 
   useEffect(() => {
     if (!project?.id) return;
@@ -34,22 +59,8 @@ export default function LaporanTab({ project = null }) {
   }, [project?.id]);
 
   useEffect(() => {
-    if (!nomorIndeks) return;
-    api.get(`/files?ref=${encodeURIComponent(nomorIndeks)}`).then((r) => {
-      const up = {};
-      let kak = "";
-      r.data.forEach((f) => {
-        if (f.kind === "kak_ref") kak = f.original_filename;
-        if (f.kind === "lampiran") {
-          const idx = LAMPIRAN.indexOf(f.label);
-          if (idx >= 0) up[idx] = true;
-        }
-      });
-      setFiles(r.data);
-      setUploaded(up);
-      setKakName(kak);
-    }).catch(() => {});
-  }, [nomorIndeks]);
+    loadFiles();
+  }, [loadFiles]);
 
   const uploadFile = async (file, kind, label) => {
     const fd = new FormData();
@@ -67,7 +78,7 @@ export default function LaporanTab({ project = null }) {
     if (!file) return;
     try {
       const rec = await uploadFile(file, "kak_ref", "KAK TTD");
-      setFiles((f) => [rec, ...f]);
+      applyFileState([rec, ...files]);
       setKakName(file.name);
       toast.success("KAK bertandatangan berhasil di-upload sebagai referensi");
     } catch (e2) { toast.error(formatApiError(e2)); }
@@ -84,10 +95,41 @@ export default function LaporanTab({ project = null }) {
     if (!file || activeLamp === null) return;
     try {
       const rec = await uploadFile(file, "lampiran", LAMPIRAN[activeLamp]);
-      setFiles((f) => [rec, ...f]);
-      setUploaded({ ...uploaded, [activeLamp]: true });
+      applyFileState([rec, ...files]);
       toast.success(`Lampiran "${LAMPIRAN[activeLamp]}" terunggah ke penyimpanan`);
     } catch (e2) { toast.error(formatApiError(e2)); }
+  };
+
+  const cancelAttachment = async (fileId) => {
+    if (!canEditAttachments) return toast.warning("Lampiran hanya bisa dibatalkan sebelum laporan disubmit");
+    try {
+      await api.delete(`/files/${fileId}`);
+      applyFileState(files.filter((f) => f.id !== fileId));
+      toast.success("Unggahan lampiran dibatalkan");
+    } catch (e2) { toast.error(formatApiError(e2)); }
+  };
+
+  const startReplaceAttachment = (fileId) => {
+    if (!canEditAttachments) return toast.warning("Lampiran hanya bisa diedit sebelum laporan disubmit");
+    setReplaceFileId(fileId);
+    replaceFileRef.current?.click();
+  };
+
+  const onReplaceFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !replaceFileId) return;
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api.put(`/files/${replaceFileId}/replace`, fd);
+      applyFileState(files.map((f) => (f.id === replaceFileId ? r.data : f)));
+      toast.success("Lampiran berhasil diganti");
+    } catch (e2) {
+      toast.error(formatApiError(e2));
+    } finally {
+      setReplaceFileId(null);
+    }
   };
 
   const generate = async () => {
@@ -129,6 +171,7 @@ export default function LaporanTab({ project = null }) {
             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Upload KAK Disetujui / Bertandatangan (Referensi Laporan)</label>
             <input ref={kakFileRef} type="file" accept=".pdf,.doc,.docx,image/*" className="hidden" onChange={uploadKak} data-testid="laporan-kak-file" />
             <input ref={lampFileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" className="hidden" onChange={onLampFile} data-testid="lampiran-file-input" />
+            <input ref={replaceFileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" className="hidden" onChange={onReplaceFile} data-testid="lampiran-replace-file-input" />
             <button onClick={() => kakFileRef.current?.click()} data-testid="laporan-upload-kak" className="w-full text-xs border-2 border-dashed border-gray-300 hover:border-emerald-400 text-gray-600 rounded-xl py-3 flex items-center justify-center space-x-2 transition">
               <Upload className="w-4 h-4" /><span>Pilih File KAK</span>
             </button>
@@ -184,6 +227,11 @@ export default function LaporanTab({ project = null }) {
 
       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <h3 className="font-heading font-bold text-gray-800 text-sm mb-4">Lampiran Wajib & Pendukung Kegiatan</h3>
+        {!canEditAttachments && (
+          <p className="mb-4 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2" data-testid="lampiran-locked-message">
+            Lampiran terkunci setelah laporan disubmit. Minta revisi terlebih dahulu untuk mengubah unggahan.
+          </p>
+        )}
         {files.length > 0 && (
           <div className="mb-5 space-y-2" data-testid="lampiran-gallery">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">File Terunggah ({files.length})</p>
@@ -191,7 +239,37 @@ export default function LaporanTab({ project = null }) {
               <div key={f.id} className="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-2.5 gap-3 flex-wrap" data-testid={`lampiran-file-${f.id}`}>
                 <span className="text-xs text-gray-700 font-medium truncate max-w-[240px]">{f.original_filename}</span>
                 <span className="text-[9px] text-gray-400 whitespace-nowrap">{f.label || f.kind} • {(f.size / 1024).toFixed(0)} KB</span>
-                <button onClick={() => window.open(`${process.env.REACT_APP_BACKEND_URL}/api/files/${f.id}/download`)} data-testid={`lampiran-view-${f.id}`} className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition whitespace-nowrap">Lihat / Unduh</button>
+                <span className="flex items-center gap-1.5" data-testid={`lampiran-actions-${f.id}`}>
+                  <button
+                    onClick={() => window.open(`${process.env.REACT_APP_BACKEND_URL}/api/files/${f.id}/download`)}
+                    data-testid={`lampiran-view-${f.id}`}
+                    title="Lihat / Unduh"
+                    aria-label="Lihat atau unduh lampiran"
+                    className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95 transition inline-flex items-center justify-center"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => startReplaceAttachment(f.id)}
+                    disabled={!canEditAttachments}
+                    data-testid={`lampiran-edit-${f.id}`}
+                    title="Edit unggahan"
+                    aria-label="Edit unggahan lampiran"
+                    className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-95 transition inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => cancelAttachment(f.id)}
+                    disabled={!canEditAttachments}
+                    data-testid={`lampiran-cancel-${f.id}`}
+                    title="Batalkan unggahan"
+                    aria-label="Batalkan unggahan lampiran"
+                    className="w-8 h-8 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 active:scale-95 transition inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </span>
               </div>
             ))}
           </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { MessageSquareText, RotateCcw } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 
 const STATUS_STYLE = {
@@ -11,6 +12,7 @@ const STATUS_STYLE = {
 
 export default function PersetujuanTab() {
   const [projects, setProjects] = useState([]);
+  const [revisionMessages, setRevisionMessages] = useState({});
 
   const load = () => api.get("/projects").then((r) => setProjects(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -27,8 +29,9 @@ export default function PersetujuanTab() {
 
   const revise = async (p) => {
     try {
-      await api.post(`/projects/${p.id}/revise`);
+      await api.post(`/projects/${p.id}/revise`, { message: revisionMessages[p.id] || "" });
       toast.success("Dikembalikan untuk revisi. PIC telah diberi tahu.");
+      setRevisionMessages((prev) => ({ ...prev, [p.id]: "" }));
       load();
     } catch (e) {
       toast.error(formatApiError(e));
@@ -45,6 +48,7 @@ export default function PersetujuanTab() {
               <th className="p-4">Nomor Indeks & Kegiatan</th>
               <th className="p-4">Sisa Waktu SLA</th>
               <th className="p-4">Status</th>
+              <th className="p-4">Pesan Revisi</th>
               <th className="p-4 text-center">Aksi (Pimpinan)</th>
             </tr>
           </thead>
@@ -57,6 +61,24 @@ export default function PersetujuanTab() {
                 </td>
                 <td className="p-4">
                   <span className={`text-[11px] px-2 py-1 rounded-full font-bold ${STATUS_STYLE[p.status] || "bg-gray-100 text-gray-700"}`}>{p.status}</span>
+                </td>
+                <td className="p-4 min-w-[260px]">
+                  {p.status === "Menunggu" ? (
+                    <label className="relative block" data-testid={`approval-revision-message-field-${p.nomor_indeks}`}>
+                      <MessageSquareText className="absolute left-3 top-3 w-4 h-4 text-amber-600" />
+                      <textarea
+                        data-testid={`approval-revision-message-${p.nomor_indeks}`}
+                        value={revisionMessages[p.id] || ""}
+                        onChange={(e) => setRevisionMessages((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                        maxLength={1000}
+                        rows={3}
+                        placeholder="Tulis poin perbaikan untuk PIC..."
+                        className="w-full rounded-xl border border-amber-200 bg-amber-50/60 pl-9 pr-3 py-2 text-xs text-gray-700 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100 resize-none"
+                      />
+                    </label>
+                  ) : (
+                    <span className="text-xs text-gray-400" data-testid={`approval-revision-message-disabled-${p.nomor_indeks}`}>-</span>
+                  )}
                 </td>
                 <td className="p-4 text-center">
                   {p.status === "Menunggu" ? (
@@ -71,9 +93,10 @@ export default function PersetujuanTab() {
                       <button
                         data-testid={`approval-revise-${p.nomor_indeks}`}
                         onClick={() => revise(p)}
-                        className="bg-amber-100 hover:bg-amber-200 active:scale-95 text-amber-800 text-xs px-3 py-1.5 rounded-lg font-semibold transition"
+                        className="bg-amber-100 hover:bg-amber-200 active:scale-95 text-amber-800 text-xs px-3 py-1.5 rounded-lg font-semibold transition inline-flex items-center space-x-1"
                       >
-                        Minta Revisi
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Minta Revisi</span>
                       </button>
                     </span>
                   ) : (
@@ -83,7 +106,7 @@ export default function PersetujuanTab() {
               </tr>
             ))}
             {projects.length === 0 && (
-              <tr><td colSpan="4" className="p-8 text-center text-gray-400" data-testid="approval-empty">Belum ada antrean persetujuan.</td></tr>
+              <tr><td colSpan="5" className="p-8 text-center text-gray-400" data-testid="approval-empty">Belum ada antrean persetujuan.</td></tr>
             )}
           </tbody>
         </table>

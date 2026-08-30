@@ -296,18 +296,32 @@ async def approve_project(pid: str, user=Depends(get_current_user)):
     return {"ok": True}
 
 
+class RevisionIn(BaseModel):
+    message: str = ""
+
+
 @api.post("/projects/{pid}/revise")
-async def revise_project(pid: str, user=Depends(get_current_user)):
+async def revise_project(pid: str, body: Optional[RevisionIn] = None, user=Depends(get_current_user)):
     if user["role"] not in ("superadmin", "pic"):
         raise HTTPException(403, "Hanya Pimpinan/PIC yang dapat meminta revisi")
-    res = await db.projects.update_one({"id": pid}, {"$set": {"status": "Perencanaan", "slaDays": 0}})
+    revision_message = (body.message if body else "").strip()
+    if len(revision_message) > 1000:
+        raise HTTPException(400, "Pesan revisi maksimal 1000 karakter")
+    res = await db.projects.update_one({"id": pid}, {"$set": {
+        "status": "Perencanaan",
+        "slaDays": 0,
+        "revision_message": revision_message,
+        "revision_requested_by": user["id"],
+        "revision_requested_at": datetime.now(timezone.utc).isoformat(),
+    }})
     if res.matched_count == 0:
         raise HTTPException(404, "Kegiatan tidak ditemukan")
     project = await db.projects.find_one({"id": pid})
     if project and project.get("created_by") and project["created_by"] != user["id"]:
+        note = f" Poin perbaikan: {revision_message}" if revision_message else ""
         await db.notifications.insert_one({
             "id": str(uuid.uuid4()), "user_id": project["created_by"],
-            "message": f"Laporan kegiatan \"{project['name']}\" ({project['nomor_indeks']}) PERLU REVISI. Silakan perbarui dokumen lalu submit ulang.",
+            "message": f"Laporan kegiatan \"{project['name']}\" ({project['nomor_indeks']}) PERLU REVISI.{note} Silakan perbarui dokumen lalu submit ulang.",
             "read": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return {"ok": True}
 
@@ -476,6 +490,55 @@ async def download_file(fid: str, user=Depends(get_current_user)):
     data, ct = get_object(record["storage_path"])
     return Response(content=data, media_type=record.get("content_type", ct),
                     headers={"Content-Disposition": f'inline; filename="{record["original_filename"]}"'})
+
+
+async def ensure_file_editable(fid: str, user: dict):
+    record = await db.files.find_one({"id": fid, "is_deleted": False}, {"_id": 0})
+    if not record:
+        raise HTTPException(404, "File tidak ditemukan")
+    project = None
+    if record.get("ref"):
+        project = await db.projects.find_one({"nomor_indeks": record["ref"]}, {"_id": 0})
+    allowed = user["role"] == "superadmin" or record.get("user_id") == user["id"]
+    if project and user["role"] == "pic" and project.get("created_by") == user["id"]:
+        allowed = True
+    if not allowed:
+        raise HTTPException(403, "Anda tidak berhak mengubah lampiran ini")
+    if project and project.get("status") != "Perencanaan":
+        raise HTTPException(409, "Lampiran hanya bisa diubah sebelum laporan disubmit")
+    return record
+
+
+@api.delete("/files/{fid}")
+async def delete_file(fid: str, user=Depends(get_current_user)):
+    await ensure_file_editable(fid, user)
+    await db.files.update_one({"id": fid}, {"$set": {
+        "is_deleted": True,
+        "deleted_by": user["id"],
+        "deleted_at": datetime.now(timezone.utc).isoformat(),
+    }})
+    return {"ok": True}
+
+
+@api.put("/files/{fid}/replace")
+async def replace_file(fid: str, file: UploadFile = File(...), user=Depends(get_current_user)):
+    await ensure_file_editable(fid, user)
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
+    ct = file.content_type or "application/octet-stream"
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(413, "Ukuran file maksimal 15MB")
+    path = f"{APP_NAME}/uploads/{user['id']}/{uuid.uuid4()}.{ext}"
+    result = put_object(path, data, ct)
+    await db.files.update_one({"id": fid}, {"$set": {
+        "storage_path": result["path"],
+        "original_filename": file.filename,
+        "content_type": ct,
+        "size": result.get("size", len(data)),
+        "updated_by": user["id"],
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }})
+    return await db.files.find_one({"id": fid}, {"_id": 0})
 
 
 # ---------- AI (LLM) ----------

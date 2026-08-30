@@ -21,6 +21,12 @@
 - AI: emergentintegrations LlmChat (stream_message), EMERGENT_LLM_KEY di backend/.env
 - Files: backend/server.py (seluruh API + seed), frontend/src/pages/{Login,Dashboard,RelawanApp}.jsx, components/tabs/* (DashboardTab, RabTab, KakTab, RealisasiTab, LaporanTab, PersetujuanTab)
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 4) — Pesan Revisi & Edit/Batalkan Lampiran
+- Pesan revisi Pimpinan: tab Persetujuan kini memiliki kolom "Pesan Revisi" per kegiatan berstatus Menunggu; pesan dikirim ke endpoint /api/projects/{pid}/revise dan masuk ke notifikasi PIC sebagai poin perbaikan.
+- Backend revisi menyimpan revision_message, revision_requested_by, revision_requested_at, mengembalikan status kegiatan ke Perencanaan, dan membatasi pesan maksimal 1000 karakter.
+- Lampiran dapat diedit/diganti dan dibatalkan sebelum laporan disubmit melalui ikon unduh, edit, dan batalkan di galeri lampiran; setelah status bukan Perencanaan, kontrol edit/batalkan dikunci.
+- Backend file memiliki endpoint DELETE /api/files/{fid} untuk soft-delete dan PUT /api/files/{fid}/replace untuk mengganti file di object storage dengan kontrol akses role/PIC dan status kegiatan.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 3) — Ekspor LPJ, Notif Persetujuan, Galeri, Paket PDF
 - Ekspor Laporan Kegiatan (LPJ): PDF & Word dari versi tersimpan terbaru + tombol Google Doc (panduan unggah Word); endpoint /export/report.pdf & report.docx
 - Notifikasi persetujuan: Sahkan → notif "DISAHKAN oleh ..." ke PIC pemilik kegiatan; tombol baru "Minta Revisi" di Persetujuan → status kembali Perencanaan + notif revisi ke PIC; lonceng notifikasi dengan badge & panel kini juga ada di header web (Dashboard & Workspace, polling 30 detik)
@@ -59,8 +65,9 @@
 - curl: login/me, stats, projects, rab CRUD, realisasi, approve, ai/kak (12 seksi OK), ai/ocr (nota uji terbaca akurat: TOKO BERKAH JAYA / 275000 / 24/08/2026)
 - Screenshot e2e: login → dashboard → RAB → Realisasi → AI KAK generate → relawan app (home + scan)
 - Belum diverifikasi di browser: upload foto nota langsung di UI (endpoint OCR sudah terbukti via curl), export PDF/Excel (mock toast)
+- Sesi 4: py_compile backend OK; yarn build OK dengan warning lama unrelated di KeuanganTab/RabTab/RelawanApp; API e2e OK untuk upload → replace → delete lampiran, submit, revisi dengan pesan, dan notifikasi PIC; screenshot Playwright OK untuk kolom pesan revisi serta ikon unduh/edit/batalkan lampiran.
 
 ## Backlog Prioritas
-- P0: Aplikasi mobile native (Expo/React Native) di atas API yang ada; ekspor RAB/KAK PDF-Excel nyata
-- P1: Notifikasi SLA otomatis, manajemen pengguna oleh admin, edit profil, filter/cari realisasi
-- P2: Offline queue PWA untuk blank spot, tanda tangan digital, multi-kegiatan per RAB
+- P0: Tidak ada blocker aktif pada alur utama saat ini.
+- P1: Notifikasi Nota Baru ke PIC saat relawan menyimpan nota; Cetak Label Arsip PDF per kegiatan dengan QR code.
+- P2: Offline queue PWA untuk blank spot, tanda tangan digital, filter/cari realisasi lanjutan, multi-kegiatan per RAB, opsi mobile native Expo/React Native di atas API yang sudah ada.
