@@ -68,6 +68,12 @@
 - Export KAK PDF dan Word juga diperbarui agar memakai format tabel resmi KAK serta menyertakan tabel RAB otomatis di bawahnya.
 - Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, Playwright memastikan tabel KAK resmi dan RAB bawah KAK tampil, curl export PDF/Word KAK mengembalikan file valid.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 23) — AI Auto-Input RAB dari Draft Ide
+- Tombol `Pakai untuk Form RAB` pada tab RAB kini memakai AI untuk menyusun beberapa item RAB otomatis berdasarkan draft ide kegiatan yang sudah disubmit.
+- Backend menambahkan endpoint `POST /api/projects/{pid}/ai/rab` yang membaca draft ide, memanggil LLM nyata, memvalidasi JSON item RAB, lalu menyimpan item langsung ke koleksi `rab_items`.
+- Frontend menampilkan model picker ringkas dan state loading `AI mengisi RAB...`; setelah berhasil tabel RAB otomatis reload dan total dihitung dari item baru.
+- Verifikasi berhasil: integration playbook AI dicek, `py_compile` backend OK, `yarn build` frontend OK, curl menghasilkan dan menyimpan 6 item RAB dari draft dummy, Playwright klik tombol AI RAB berhasil mengisi 7 row dengan total Rp 28.250.000 pada data uji lalu data uji dibersihkan.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.

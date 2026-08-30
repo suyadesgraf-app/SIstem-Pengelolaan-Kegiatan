@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Lightbulb, Pencil, Trash2 } from "lucide-react";
+import { Lightbulb, Loader2, Pencil, Sparkles, Trash2 } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
+import ModelPicker from "@/components/ModelPicker";
 
 const KATEGORI_OPSI = ["Branding", "Perlengkapan", "Konsumsi"];
 const empty = { kategori: "Branding", kategoriManual: "", uraian: "", qty: "", satuanQty: "", frek: "", satuanFrek: "", harga: "" };
@@ -13,6 +14,8 @@ export default function RabTab({ projectId = "" }) {
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});
   const [idea, setIdea] = useState(null);
+  const [provider, setProvider] = useState("gemini");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const load = useCallback(() => api.get(`/rab?project_id=${projectId}`).then((r) => setItems(r.data)).catch(() => {}), [projectId]);
   useEffect(() => { load(); }, [load]);
@@ -35,19 +38,18 @@ export default function RabTab({ projectId = "" }) {
   const grandTotal = items.reduce((s, it) => s + it.qty * it.frek * it.harga, 0);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  const useIdeaForRab = () => {
+  const useIdeaForRab = async () => {
     if (!idea) return toast.warning("Submit ide kegiatan terlebih dahulu");
-    setForm({
-      kategori: "lainnya",
-      kategoriManual: "Kegiatan Utama",
-      uraian: idea.activity_format || idea.title || "Pelaksanaan kegiatan",
-      qty: "1",
-      satuanQty: "Paket",
-      frek: "1",
-      satuanFrek: "Kegiatan",
-      harga: "",
-    });
-    toast.success("Bahan ide dimuat ke form RAB");
+    setAiLoading(true);
+    try {
+      const response = await api.post(`/projects/${projectId}/ai/rab`, { provider });
+      await load();
+      toast.success(`${response.data.count} item RAB berhasil dibuat AI dari draft ide`);
+    } catch (e) {
+      toast.error(formatApiError(e));
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const addItem = async () => {
@@ -114,9 +116,13 @@ export default function RabTab({ projectId = "" }) {
             <p className="text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1"><Lightbulb className="w-3.5 h-3.5" /> Bahan dari Draft Ide</p>
             <p className="text-xs text-emerald-700 mt-1" data-testid="rab-idea-source-notes">{idea.rab_notes || idea.budget_outline || "Draft ide siap dijadikan dasar pos anggaran."}</p>
           </div>
-          <button data-testid="rab-use-idea-button" onClick={useIdeaForRab} className="text-xs bg-emerald-700 text-white hover:bg-emerald-800 active:scale-95 px-4 py-2 rounded-lg font-bold transition whitespace-nowrap">
-            Pakai untuk Form RAB
-          </button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <div data-testid="rab-ai-model-picker-wrap"><ModelPicker value={provider} onChange={setProvider} kind="doc" compact /></div>
+            <button data-testid="rab-use-idea-button" onClick={useIdeaForRab} disabled={aiLoading} className="text-xs bg-emerald-700 text-white hover:bg-emerald-800 active:scale-95 px-4 py-2 rounded-lg font-bold transition whitespace-nowrap inline-flex items-center gap-1.5 disabled:opacity-60">
+              {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              <span>{aiLoading ? "AI mengisi RAB..." : "Pakai untuk Form RAB"}</span>
+            </button>
+          </div>
         </div>
       )}
 

@@ -831,6 +831,10 @@ class IdeaChatIn(BaseModel):
     attachments: List[IdeaChatAttachmentIn] = []
 
 
+class RabAiIn(BaseModel):
+    provider: str = "gemini"
+
+
 @api.post("/projects/{pid}/idea/chat")
 async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_current_user)):
     project = await ensure_project_access(pid, user)
@@ -902,6 +906,68 @@ async def chat_activity_idea(pid: str, body: IdeaChatIn, user=Depends(get_curren
     await db.activity_ideas.update_one({"project_id": pid}, {"$set": update}, upsert=True)
     return {"reply": reply, "draft": new_draft, "messages": messages[-80:], "session_id": session_id,
             "status": update["status"], "next_questions": assistant_msg["next_questions"]}
+
+
+@api.post("/projects/{pid}/ai/rab")
+async def generate_rab_from_idea(pid: str, body: RabAiIn, user=Depends(get_current_user)):
+    project = await ensure_project_access(pid, user)
+    if user["role"] == "relawan":
+        raise HTTPException(403, "Relawan tidak dapat membuat RAB")
+    idea = await db.activity_ideas.find_one({"project_id": pid, "status": "submitted"}, {"_id": 0})
+    if not idea:
+        raise HTTPException(400, "Submit draft ide kegiatan terlebih dahulu sebelum membuat RAB otomatis")
+    prov, model = resolve_model(body.provider, "doc")
+    draft = normalize_idea_draft(idea.get("draft"))
+    system = (
+        "Anda adalah analis RAB program BAZNAS BAZIS Provinsi DKI Jakarta. "
+        "Buat item Rencana Anggaran Biaya yang realistis dari draft ide kegiatan. "
+        "Balas HANYA JSON valid dengan struktur: "
+        "{\"items\": [{\"kategori\": str, \"uraian\": str, \"qty\": number, \"satuanQty\": str, "
+        "\"frek\": number, \"satuanFrek\": str, \"harga\": number}]}. "
+        "Buat 3 sampai 8 item. Gunakan kategori yang ringkas seperti Branding, Perlengkapan, Konsumsi, "
+        "Transportasi, Honorarium, Operasional, Dokumentasi, atau Lainnya. Harga dalam Rupiah integer, tanpa titik/koma. "
+        "Jangan membuat total, karena sistem akan menghitung otomatis."
+    )
+    prompt = (
+        f"Nama kegiatan: {project.get('name', '')}\n"
+        f"Lokasi: {project.get('loc', '-')}; Waktu: {project.get('date', '-')}\n"
+        f"Plafon awal: Rp {project.get('plafon', 0)} juta\n\n"
+        f"Draft Ide:\n{idea_to_prompt(draft)}"
+    )
+    try:
+        raw = await llm_complete(system, prompt, provider=prov, model=model)
+        data = parse_llm_json(raw)
+    except Exception as e:
+        logger.error(f"AI RAB error: {e}")
+        raise_ai_http_error(e, "menyusun RAB otomatis", prov)
+    rows = data.get("items") if isinstance(data.get("items"), list) else []
+    clean_rows = []
+    now = datetime.now(timezone.utc).isoformat()
+    for item in rows[:10]:
+        uraian = str(item.get("uraian", "") or "").strip()[:180]
+        if not uraian:
+            continue
+        clean_rows.append({
+            "id": str(uuid.uuid4()),
+            "kategori": str(item.get("kategori", "Lainnya") or "Lainnya").strip()[:80],
+            "uraian": uraian,
+            "qty": max(1, int(float(item.get("qty") or 1))),
+            "satuanQty": str(item.get("satuanQty", "Paket") or "Paket").strip()[:40],
+            "frek": max(1, int(float(item.get("frek") or 1))),
+            "satuanFrek": str(item.get("satuanFrek", "Kegiatan") or "Kegiatan").strip()[:40],
+            "harga": max(0, int(float(item.get("harga") or 0))),
+            "project_id": pid,
+            "source": "ai_idea",
+            "provider": prov,
+            "created_by": user["id"],
+            "created_at": now,
+        })
+    if not clean_rows:
+        raise HTTPException(500, "AI belum menghasilkan item RAB yang valid, coba lengkapi draft ide lalu ulangi")
+    await db.rab_items.insert_many(clean_rows)
+    for row in clean_rows:
+        row.pop("_id", None)
+    return {"items": clean_rows, "count": len(clean_rows), "provider": prov}
 
 
 class OcrIn(BaseModel):
