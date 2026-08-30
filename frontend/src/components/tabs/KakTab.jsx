@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ClipboardCheck, Printer, Sparkles } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
@@ -12,6 +12,24 @@ const SIGNERS = [
   { label: "Disetujui oleh;", name: "Muhamad Bahaudin", role: "Pimpinan Bidang II" },
 ];
 
+const KAK_COMPONENTS = [
+  "Pendahuluan",
+  "Deskripsi Program",
+  "Landasan Hukum",
+  "Tujuan Program",
+  "Sasaran & Target",
+  "Tempat & Waktu Pelaksanaan",
+  "Indikator Keberhasilan",
+  "Pelaksana & Penanggung Jawab",
+  "Mekanisme Pelaksanaan",
+  "Rencana Anggaran Biaya",
+  "Jadwal Kegiatan",
+  "Penutup",
+];
+
+const normalizeHeading = (value = "") => value.replace(/^\s*\d+[.)-]?\s*/, "").trim().toLowerCase();
+const rp = (n) => `Rp ${Number(n || 0).toLocaleString("id-ID")}`;
+
 export default function KakTab({ project = null }) {
   const [raw, setRaw] = useState("");
   const [doc, setDoc] = useState(null);
@@ -19,6 +37,7 @@ export default function KakTab({ project = null }) {
   const [provider, setProvider] = useState("gemini");
   const [history, setHistory] = useState([]);
   const [idea, setIdea] = useState(null);
+  const [rabItems, setRabItems] = useState([]);
   const previewRef = useRef(null);
 
   const handlePreviewWheel = (event) => {
@@ -38,7 +57,26 @@ export default function KakTab({ project = null }) {
     api.get(`/projects/${project.id}/idea`).then((r) => {
       if (r.data.status === "submitted") setIdea(r.data.draft || null);
     }).catch(() => {});
+    api.get(`/rab?project_id=${project.id}`).then((r) => setRabItems(r.data)).catch(() => {});
   }, [project?.id]);
+
+  const officialRows = useMemo(() => {
+    const sections = doc?.sections || [];
+    return KAK_COMPONENTS.map((component, index) => {
+      const normalized = normalizeHeading(component).replace("dan", "&");
+      const matched = sections.find((section) => normalizeHeading(section.heading).replace("dan", "&").includes(normalized));
+      return {
+        no: index + 1,
+        component,
+        explanation: matched?.body || sections[index]?.body || "",
+      };
+    });
+  }, [doc]);
+
+  const rabTotal = useMemo(
+    () => rabItems.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.frek) || 0) * (Number(item.harga) || 0), 0),
+    [rabItems]
+  );
 
   const loadIdeaToRaw = () => {
     const text = draftToKakText(idea);
@@ -129,33 +167,88 @@ export default function KakTab({ project = null }) {
         id="kak-print-area"
         ref={previewRef}
         onWheel={handlePreviewWheel}
-        className="document-scroll-area flex-1 bg-[#fcfcfc] border border-gray-200 rounded-xl p-6 relative h-[580px] overflow-y-auto overscroll-y-contain touch-pan-y font-doc text-xs text-gray-800 space-y-4 shadow-inner"
+        className="document-scroll-area flex-1 bg-[#fcfcfc] border border-gray-200 rounded-xl p-6 relative h-[640px] overflow-y-auto overscroll-y-contain touch-pan-y font-sans text-xs text-gray-900 space-y-5 shadow-inner"
         data-testid="kak-preview"
         aria-label="Pratinjau dokumen KAK yang dapat digulir"
       >
         <span className="absolute top-3 right-3 text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold font-sans no-print">
           {doc ? "KAK Resmi Disusun AI" : "Format Resmi BAZNAS"}
         </span>
-        <div className="text-center font-bold border-b border-gray-400 pb-3 mb-4 font-sans">
-          <p className="text-xs text-gray-600 uppercase">BAZNAS BAZIS PROVINSI DKI JAKARTA</p>
-          <h4 className="text-sm text-gray-900 uppercase mt-1 font-heading">KERANGKA ACUAN KEGIATAN (KAK)</h4>
-          <p className="text-[11px] text-emerald-700 font-bold uppercase mt-1" data-testid="kak-doc-title">
-            {doc?.title || "[JUDUL PROGRAM KEGIATAN]"}
+        <div className="text-center font-bold pb-3 font-sans" data-testid="kak-official-header">
+          <img
+            src="https://baznasbazisdki.id/assets/img/logo-dark-min.png"
+            alt="Logo BAZNAS BAZIS DKI"
+            className="h-14 w-auto object-contain mx-auto mb-3"
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+          <h4 className="text-sm text-gray-950 uppercase font-extrabold tracking-wide" data-testid="kak-doc-title">
+            {(project?.name || doc?.title || "NAMA KEGIATAN").toUpperCase()}
+          </h4>
+          <p className="text-[11px] text-gray-600 mt-1" data-testid="kak-doc-subtitle">
+            {[doc?.title, project?.loc, project?.date].filter(Boolean).join(" • ") || "Keterangan kegiatan"}
           </p>
         </div>
-        <div className="space-y-3 leading-relaxed" data-testid="kak-preview-content">
-          {doc ? (
-            doc.sections?.map((s, i) => (
-              <p key={i}><strong>{s.heading}:</strong> {s.body}</p>
-            ))
-          ) : (
-            <>
-              <p><strong>1. Pendahuluan:</strong> Belum di-generate. Masukkan poin ringkas di sebelah kiri lalu klik tombol <em>Generate KAK dengan AI</em>.</p>
-              <p><strong>2. Deskripsi Program:</strong> Penanganan cepat, tepat, dan berdampak nyata bagi penerima manfaat melalui kolaborasi lintas pihak.</p>
-              <p><strong>3. Landasan Hukum:</strong> 1. Undang-Undang Nomor 23 Tahun 2011 tentang Pengelolaan Zakat, 2. Peraturan Gubernur DKI Jakarta No. 3 Tahun 2019.</p>
-              <p><strong>10. Rencana Anggaran Biaya:</strong> Terintegrasi otomatis dengan nilai total RAB sistem.</p>
-            </>
-          )}
+
+        <table className="w-full border-collapse bg-white text-[10px] leading-relaxed" data-testid="kak-official-table">
+          <thead>
+            <tr className="bg-gray-100 text-gray-900 font-bold">
+              <th className="border border-gray-500 px-2 py-2 w-10 text-center">NO</th>
+              <th className="border border-gray-500 px-2 py-2 w-44 text-left">KOMPONEN</th>
+              <th className="border border-gray-500 px-2 py-2 text-left">PENJELASAN</th>
+            </tr>
+          </thead>
+          <tbody>
+            {officialRows.map((row) => (
+              <tr key={row.no} data-testid={`kak-official-row-${row.no}`}>
+                <td className="border border-gray-500 px-2 py-2 text-center align-top font-semibold">{row.no}</td>
+                <td className="border border-gray-500 px-2 py-2 align-top font-semibold">{row.component}</td>
+                <td className="border border-gray-500 px-2 py-2 align-top text-gray-800 whitespace-pre-line min-h-8">
+                  {row.explanation || (doc ? "-" : "Belum di-generate")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="pt-2" data-testid="kak-rab-section">
+          <h4 className="text-center text-sm font-extrabold uppercase mb-2">Rencana Anggaran Biaya (RAB)</h4>
+          <table className="w-full border-collapse bg-white text-[10px]" data-testid="kak-rab-table">
+            <thead>
+              <tr className="bg-gray-100 text-gray-900 font-bold">
+                <th className="border border-gray-500 px-2 py-2 w-9 text-center">No</th>
+                <th className="border border-gray-500 px-2 py-2 text-left">Uraian</th>
+                <th className="border border-gray-500 px-2 py-2 w-20 text-center">Qty</th>
+                <th className="border border-gray-500 px-2 py-2 w-20 text-center">Frek</th>
+                <th className="border border-gray-500 px-2 py-2 w-24 text-right">Harga Satuan</th>
+                <th className="border border-gray-500 px-2 py-2 w-24 text-right">Jumlah</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rabItems.map((item, index) => {
+                const jumlah = (Number(item.qty) || 0) * (Number(item.frek) || 0) * (Number(item.harga) || 0);
+                return (
+                  <tr key={item.id} data-testid={`kak-rab-row-${item.id}`}>
+                    <td className="border border-gray-500 px-2 py-2 text-center align-top">{index + 1}</td>
+                    <td className="border border-gray-500 px-2 py-2 align-top">
+                      <span className="font-semibold">{item.uraian}</span>
+                      {item.kategori && <span className="block text-gray-500 text-[9px]">{item.kategori}</span>}
+                    </td>
+                    <td className="border border-gray-500 px-2 py-2 text-center align-top">{item.qty} {item.satuanQty}</td>
+                    <td className="border border-gray-500 px-2 py-2 text-center align-top">{item.frek} {item.satuanFrek}</td>
+                    <td className="border border-gray-500 px-2 py-2 text-right align-top">{rp(item.harga)}</td>
+                    <td className="border border-gray-500 px-2 py-2 text-right align-top font-semibold">{rp(jumlah)}</td>
+                  </tr>
+                );
+              })}
+              {rabItems.length === 0 && (
+                <tr><td colSpan="6" className="border border-gray-500 px-2 py-6 text-center text-gray-400" data-testid="kak-rab-empty">Belum ada item RAB.</td></tr>
+              )}
+              <tr className="font-extrabold bg-gray-100">
+                <td colSpan="5" className="border border-gray-500 px-2 py-2 text-center uppercase">Total</td>
+                <td className="border border-gray-500 px-2 py-2 text-right" data-testid="kak-rab-total">{rp(rabTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <div className="mt-8 pt-4 border-t border-gray-300 font-sans">
           <table className="w-full table-fixed text-[10px] text-center border border-gray-300 bg-white">

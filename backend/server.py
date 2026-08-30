@@ -1017,6 +1017,51 @@ def _rp(n):
     return f"Rp {int(n or 0):,}".replace(",", ".")
 
 
+KAK_COMPONENT_LABELS = [
+    "Pendahuluan",
+    "Deskripsi Program",
+    "Landasan Hukum",
+    "Tujuan Program",
+    "Sasaran & Target",
+    "Tempat & Waktu Pelaksanaan",
+    "Indikator Keberhasilan",
+    "Pelaksana & Penanggung Jawab",
+    "Mekanisme Pelaksanaan",
+    "Rencana Anggaran Biaya",
+    "Jadwal Kegiatan",
+    "Penutup",
+]
+
+SIGNERS = [
+    {"label": "Dibuat oleh;", "name": "Saiful Rahman", "role": "Staff Kebencanaan"},
+    {"label": "Diajukan oleh;", "name": "Lina Yunita", "role": "Kasie Pendistribusian"},
+    {"label": "Disetujui oleh;", "name": "Muhammad Nurminto", "role": "Kepala Bidang II"},
+    {"label": "Disetujui oleh;", "name": "Muhamad Bahaudin", "role": "Pimpinan Bidang II"},
+]
+
+
+def _plain_component(value: str) -> str:
+    return re.sub(r"^\s*\d+[.)-]?\s*", "", value or "").strip().lower().replace("dan", "&")
+
+
+def _kak_rows(kak: dict):
+    sections = kak.get("sections", []) or []
+    rows = []
+    for idx, component in enumerate(KAK_COMPONENT_LABELS):
+        normalized = _plain_component(component)
+        match = next((s for s in sections if normalized in _plain_component(s.get("heading", ""))), None)
+        rows.append({
+            "no": idx + 1,
+            "component": component,
+            "explanation": (match or (sections[idx] if idx < len(sections) else {})).get("body", ""),
+        })
+    return rows
+
+
+def _rab_total(items: list) -> int:
+    return sum((it.get("qty", 0) or 0) * (it.get("frek", 0) or 0) * (it.get("harga", 0) or 0) for it in items)
+
+
 @api.get("/projects/{pid}/export/rab.xlsx")
 async def export_rab_xlsx(pid: str, user=Depends(get_current_user)):
     project = await db.projects.find_one({"id": pid}, {"_id": 0})
@@ -1116,23 +1161,97 @@ async def _latest_kak(pid: str):
 
 @api.get("/projects/{pid}/export/kak.pdf")
 async def export_kak_pdf(pid: str, user=Depends(get_current_user)):
+    project = await db.projects.find_one({"id": pid}, {"_id": 0})
+    if not project:
+        raise HTTPException(404, "Kegiatan tidak ditemukan")
     kak = await _latest_kak(pid)
     from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as ReportImage
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
+    from xml.sax.saxutils import escape
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=50, rightMargin=50, topMargin=50)
     styles = getSampleStyleSheet()
-    body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, leading=14, spaceAfter=8)
-    story = [
-        Paragraph("BAZNAS BAZIS PROVINSI DKI JAKARTA", styles["Title"]),
-        Paragraph("KERANGKA ACUAN KEGIATAN (KAK)", styles["Heading2"]),
-        Paragraph(kak.get("title", ""), ParagraphStyle("t", parent=styles["Heading3"], textColor=colors.HexColor("#047857"))),
+    body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=8, leading=11, spaceAfter=0)
+    title_style = ParagraphStyle("officialTitle", parent=styles["Heading2"], alignment=1, fontSize=12, leading=15, spaceAfter=4)
+    subtitle_style = ParagraphStyle("officialSubtitle", parent=styles["Normal"], alignment=1, fontSize=9, leading=12, textColor=colors.HexColor("#475569"))
+    story = []
+    try:
+        logo_response = requests.get("https://baznasbazisdki.id/assets/img/logo-dark-min.png", timeout=5)
+        if logo_response.ok:
+            logo = ReportImage(io.BytesIO(logo_response.content), width=90, height=30)
+            logo.hAlign = "CENTER"
+            story.append(logo)
+            story.append(Spacer(1, 8))
+    except Exception as e:
+        logger.warning(f"KAK logo load skipped: {e}")
+    story.extend([
+        Paragraph(escape((project.get("name") or kak.get("title") or "NAMA KEGIATAN").upper()), title_style),
+        Paragraph(escape(" • ".join([x for x in [kak.get("title"), project.get("loc"), project.get("date")] if x]) or "Keterangan kegiatan"), subtitle_style),
         Spacer(1, 14),
-    ]
-    for s in kak.get("sections", []):
-        story.append(Paragraph(f"<b>{s.get('heading', '')}</b> {s.get('body', '')}", body_style))
+    ])
+    kak_data = [["NO", "KOMPONEN", "PENJELASAN"]]
+    for row in _kak_rows(kak):
+        kak_data.append([str(row["no"]), Paragraph(f"<b>{escape(row['component'])}</b>", body_style), Paragraph(escape(row["explanation"] or "-"), body_style)])
+    kak_table = Table(kak_data, colWidths=[32, 145, 300], repeatRows=1)
+    kak_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#111827")),
+        ("FONTSIZE", (0, 0), (-1, 0), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(kak_table)
+    story.append(Spacer(1, 18))
+    rab_items = await db.rab_items.find({"project_id": pid}, {"_id": 0}).to_list(1000)
+    story.append(Paragraph("RENCANA ANGGARAN BIAYA (RAB)", title_style))
+    rab_data = [["No", "Uraian", "Qty", "Frek", "Harga Satuan", "Jumlah"]]
+    for idx, it in enumerate(rab_items, 1):
+        jumlah = (it.get("qty", 0) or 0) * (it.get("frek", 0) or 0) * (it.get("harga", 0) or 0)
+        rab_data.append([
+            str(idx),
+            Paragraph(f"<b>{escape(it.get('uraian', ''))}</b><br/><font color='#64748b'>{escape(it.get('kategori', ''))}</font>", body_style),
+            f"{it.get('qty', 0)} {it.get('satuanQty', '')}",
+            f"{it.get('frek', 0)} {it.get('satuanFrek', '')}",
+            _rp(it.get("harga", 0)),
+            _rp(jumlah),
+        ])
+    if not rab_items:
+        rab_data.append(["", "Belum ada item RAB", "", "", "", ""])
+    rab_data.append(["", "", "", "", "TOTAL", _rp(_rab_total(rab_items))])
+    rab_table = Table(rab_data, colWidths=[28, 190, 55, 55, 74, 75], repeatRows=1)
+    rab_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#111827")),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(rab_table)
+    story.append(Spacer(1, 18))
+    signer_data = [[s["label"] for s in SIGNERS], []]
+    for signer in SIGNERS:
+        signer_data[1].append(Paragraph(f"<br/><br/><br/><b>{escape(signer['name'])}</b><br/>{escape(signer['role'])}", body_style))
+    signer_table = Table(signer_data, colWidths=[119, 119, 119, 119])
+    signer_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.6, colors.HexColor("#111827")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(signer_table)
     doc.build(story)
     return Response(content=buf.getvalue(), media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="KAK-{pid[:8]}.pdf"'})
@@ -1140,15 +1259,51 @@ async def export_kak_pdf(pid: str, user=Depends(get_current_user)):
 
 @api.get("/projects/{pid}/export/kak.docx")
 async def export_kak_docx(pid: str, user=Depends(get_current_user)):
+    project = await db.projects.find_one({"id": pid}, {"_id": 0})
+    if not project:
+        raise HTTPException(404, "Kegiatan tidak ditemukan")
     kak = await _latest_kak(pid)
     from docx import Document
     document = Document()
-    document.add_heading("BAZNAS BAZIS PROVINSI DKI JAKARTA", level=1)
-    document.add_heading("KERANGKA ACUAN KEGIATAN (KAK)", level=2)
-    document.add_heading(kak.get("title", ""), level=3)
-    for s in kak.get("sections", []):
-        document.add_heading(s.get("heading", ""), level=4)
-        document.add_paragraph(s.get("body", ""))
+    document.add_heading((project.get("name") or kak.get("title") or "NAMA KEGIATAN").upper(), level=1)
+    document.add_paragraph(" • ".join([x for x in [kak.get("title"), project.get("loc"), project.get("date")] if x]) or "Keterangan kegiatan")
+    table = document.add_table(rows=1, cols=3)
+    table.style = "Table Grid"
+    headers = table.rows[0].cells
+    headers[0].text = "NO"
+    headers[1].text = "KOMPONEN"
+    headers[2].text = "PENJELASAN"
+    for row in _kak_rows(kak):
+        cells = table.add_row().cells
+        cells[0].text = str(row["no"])
+        cells[1].text = row["component"]
+        cells[2].text = row["explanation"] or "-"
+    document.add_paragraph("")
+    document.add_heading("RENCANA ANGGARAN BIAYA (RAB)", level=2)
+    rab_items = await db.rab_items.find({"project_id": pid}, {"_id": 0}).to_list(1000)
+    rab_table = document.add_table(rows=1, cols=6)
+    rab_table.style = "Table Grid"
+    rab_headers = rab_table.rows[0].cells
+    for cell, label in zip(rab_headers, ["No", "Uraian", "Qty", "Frek", "Harga Satuan", "Jumlah"]):
+        cell.text = label
+    for idx, it in enumerate(rab_items, 1):
+        jumlah = (it.get("qty", 0) or 0) * (it.get("frek", 0) or 0) * (it.get("harga", 0) or 0)
+        cells = rab_table.add_row().cells
+        cells[0].text = str(idx)
+        cells[1].text = f"{it.get('uraian', '')}\n{it.get('kategori', '')}"
+        cells[2].text = f"{it.get('qty', 0)} {it.get('satuanQty', '')}"
+        cells[3].text = f"{it.get('frek', 0)} {it.get('satuanFrek', '')}"
+        cells[4].text = _rp(it.get("harga", 0))
+        cells[5].text = _rp(jumlah)
+    total_cells = rab_table.add_row().cells
+    total_cells[4].text = "TOTAL"
+    total_cells[5].text = _rp(_rab_total(rab_items))
+    document.add_paragraph("")
+    signer_table = document.add_table(rows=2, cols=4)
+    signer_table.style = "Table Grid"
+    for idx, signer in enumerate(SIGNERS):
+        signer_table.rows[0].cells[idx].text = signer["label"]
+        signer_table.rows[1].cells[idx].text = f"\n\n\n{signer['name']}\n{signer['role']}"
     buf = io.BytesIO()
     document.save(buf)
     return Response(content=buf.getvalue(),

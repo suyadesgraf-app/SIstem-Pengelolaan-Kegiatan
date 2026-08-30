@@ -62,6 +62,12 @@
 - Judul daftar proses di dashboard diubah dari `Kegiatan Dalam Proses Terbaru` menjadi `Kegiatan Dalam Proses` sesuai permintaan pengguna.
 - Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan heading dashboard sudah berubah.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 22) — Format Resmi KAK + RAB Otomatis
+- Preview KAK di tab `KAK` diubah mengikuti contoh PDF pengguna: header logo BAZNAS, nama kegiatan sebagai judul utama, tabel resmi `NO / KOMPONEN / PENJELASAN`, dan footer tanda tangan.
+- RAB yang sudah diinput pada tab `RAB` kini otomatis tampil di bawah KAK dalam tabel `Rencana Anggaran Biaya (RAB)` lengkap dengan Qty, Frek, Harga Satuan, Jumlah, dan Total.
+- Export KAK PDF dan Word juga diperbarui agar memakai format tabel resmi KAK serta menyertakan tabel RAB otomatis di bawahnya.
+- Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, Playwright memastikan tabel KAK resmi dan RAB bawah KAK tampil, curl export PDF/Word KAK mengembalikan file valid.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
