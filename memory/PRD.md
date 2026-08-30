@@ -81,6 +81,10 @@
 - AI Auto-Input RAB juga diberi acuan pagu SBM dan backend menyesuaikan item AI yang cocok agar tidak melebihi pagu.
 - Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, Playwright memastikan input `Makan peserta` otomatis mengisi Rp 50.000 dan warning muncul saat harga diubah menjadi Rp 75.000.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 25) — Nomor Urut RAB Kontinu
+- Nomor pada tabel RAB kini mengikuti urutan tampil setelah pengelompokan kategori, sehingga selalu berurutan 1, 2, 3, dan seterusnya meskipun item diinput belakangan.
+- Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan nomor baris RAB tampil kontinu.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.

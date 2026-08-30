@@ -58,6 +58,14 @@ export default function RabTab({ projectId = "" }) {
     return [...map.entries()];
   }, [items]);
 
+  const displayGroups = useMemo(() => {
+    let rowNumber = 0;
+    return groups.map(([kategori, rows]) => [
+      kategori,
+      rows.map((item) => ({ ...item, displayNumber: rowNumber += 1 })),
+    ]);
+  }, [groups]);
+
   const grandTotal = items.reduce((s, it) => s + it.qty * it.frek * it.harga, 0);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const sbmMatch = useMemo(() => findSbmRate(form.uraian), [form.uraian]);
@@ -235,7 +243,7 @@ export default function RabTab({ projectId = "" }) {
             </tr>
           </thead>
           <tbody className="bg-white">
-            {groups.map(([kategori, rows]) => (
+            {displayGroups.map(([kategori, rows]) => (
               <Fragment key={kategori}>
                 <tr className="bg-emerald-50 font-bold border-b border-gray-200">
                   <td className="p-2 border border-gray-300" />
@@ -246,7 +254,7 @@ export default function RabTab({ projectId = "" }) {
                   const editing = editingId === it.id;
                   return (
                     <tr key={it.id} className="hover:bg-gray-50 transition border-b border-gray-200" data-testid={`rab-row-${it.id}`}>
-                      <td className="p-2 border-r border-gray-300 text-center text-gray-500">{items.indexOf(it) + 1}</td>
+                      <td className="p-2 border-r border-gray-300 text-center text-gray-500" data-testid={`rab-row-number-${it.id}`}>{it.displayNumber}</td>
                       <td className="p-2 border-r border-gray-300 font-medium">
                         {editing ? <input className={editCls} value={draft.uraian} onChange={(e) => setDraft({ ...draft, uraian: e.target.value })} /> : it.uraian}
                       </td>
