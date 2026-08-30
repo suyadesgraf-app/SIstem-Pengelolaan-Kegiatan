@@ -40,6 +40,7 @@ export default function IdeKegiatanTab({ project }) {
   const [saving, setSaving] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMinimized, setChatMinimized] = useState(false);
+  const [chatPosition, setChatPosition] = useState({ x: 0, y: 0 });
 
   const greeting = useMemo(() => ({
     id: "greeting",
@@ -150,8 +151,8 @@ export default function IdeKegiatanTab({ project }) {
           </button>
         </div>
       </section>
-      {chatOpen && <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} loading={loading} onSend={sendMessage} onMinimize={minimizeChat} onClose={closeChat} />}
-      {chatMinimized && <button data-testid="idea-chat-restore-button" onClick={openChat} className="fixed bottom-5 left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-800 active:scale-95"><Bot className="h-5 w-5" />Buka Chat AI</button>}
+      {chatOpen && <IdeaChatPopup messages={messages} sessionId={sessionId} provider={provider} setProvider={setProvider} input={input} setInput={setInput} loading={loading} onSend={sendMessage} onMinimize={minimizeChat} onClose={closeChat} position={chatPosition} setPosition={setChatPosition} />}
+      {chatMinimized && <button data-testid="idea-chat-restore-button" onClick={openChat} className="fixed bottom-5 right-5 z-[110] inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-800 active:scale-95"><Bot className="h-5 w-5" />Buka Chat AI</button>}
     </div>
   );
 }

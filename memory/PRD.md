@@ -31,6 +31,7 @@
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 6) — Gulir Otomatis Ide Kegiatan
 - Chat AI Ide Kegiatan dipindahkan ke popup mandiri dan bisa diminimalkan menjadi tombol melayang di tengah bawah layar. Draft Ide kini memakai seluruh lebar workspace agar lebih mudah dibaca dan diedit.
 - Fitur gulir otomatis berdasarkan posisi kursor dihilangkan. Panel panjang tetap mendukung gulir normal dengan roda mouse, touchpad, dan gestur sentuh; scrollbar visual disembunyikan.
+- Popup Chat AI disempurnakan menjadi jendela kecil di kanan bawah, menyerupai chat mengambang. Bagian header berfungsi sebagai handle seret sehingga pengguna desktop dapat memindahkan posisinya; posisi terakhir dipertahankan selama halaman workspace terbuka.
 
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 4) — Pesan Revisi & Edit/Batalkan Lampiran
 - Pesan revisi Pimpinan: tab Persetujuan kini memiliki kolom "Pesan Revisi" per kegiatan berstatus Menunggu; pesan dikirim ke endpoint /api/projects/{pid}/revise dan masuk ke notifikasi PIC sebagai poin perbaikan.

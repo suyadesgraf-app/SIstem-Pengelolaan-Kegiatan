@@ -1,11 +1,38 @@
-import { Bot, Minimize2, SendHorizonal, UserRound, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Bot, GripHorizontal, Minimize2, SendHorizonal, UserRound, X } from "lucide-react";
 import ModelPicker from "@/components/ModelPicker";
 
-export const IdeaChatPopup = ({ messages, sessionId, provider, setProvider, input, setInput, loading, onSend, onMinimize, onClose }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6" data-testid="idea-chat-popup-overlay" role="presentation">
-    <button data-testid="idea-chat-popup-backdrop" className="absolute inset-0 bg-gray-950/30 backdrop-blur-[2px]" onClick={onClose} aria-label="Tutup popup chat" />
-    <section className="relative z-10 flex h-[min(760px,calc(100dvh-1.5rem))] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl" data-testid="idea-chat-popup" role="dialog" aria-modal="true" aria-labelledby="idea-chat-title">
-      <header className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+export const IdeaChatPopup = ({ messages, sessionId, provider, setProvider, input, setInput, loading, onSend, onMinimize, onClose, position, setPosition }) => {
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef(null);
+
+  const beginDrag = (event) => {
+    if (window.innerWidth < 640) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragStart.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, position };
+    setDragging(true);
+  };
+
+  const moveDrag = (event) => {
+    if (!dragStart.current || dragStart.current.pointerId !== event.pointerId) return;
+    const { x, y, position: origin } = dragStart.current;
+    setPosition({
+      x: Math.max(-(window.innerWidth - 96), Math.min(24, origin.x + event.clientX - x)),
+      y: Math.max(-(window.innerHeight - 112), Math.min(24, origin.y + event.clientY - y)),
+    });
+  };
+
+  const endDrag = (event) => {
+    if (dragStart.current?.pointerId === event.pointerId) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      dragStart.current = null;
+      setDragging(false);
+    }
+  };
+
+  return (
+    <section className="fixed bottom-3 right-3 z-[110] flex h-[min(600px,calc(100dvh-1.5rem))] w-[min(500px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:bottom-6 sm:right-6" style={{ transform: `translate(${position.x}px, ${position.y}px)` }} data-testid="idea-chat-popup" role="dialog" aria-modal="false" aria-labelledby="idea-chat-title">
+      <header onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} className={`flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 select-none ${dragging ? "cursor-grabbing" : "cursor-grab"}`} data-testid="idea-chat-drag-handle">
         <div className="flex items-center gap-3 min-w-0">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Bot className="h-5 w-5" /></span>
           <div className="min-w-0">
@@ -13,11 +40,12 @@ export const IdeaChatPopup = ({ messages, sessionId, provider, setProvider, inpu
             <p className="truncate text-xs text-gray-500" data-testid="idea-chat-session">Session: {sessionId.slice(0, 8)}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div onPointerDown={(event) => event.stopPropagation()} className="flex items-center gap-1">
           <ModelPicker value={provider} onChange={setProvider} kind="doc" compact />
           <button data-testid="idea-chat-minimize-button" onClick={onMinimize} title="Minimalkan chat" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-emerald-50 hover:text-emerald-700" aria-label="Minimalkan chat"><Minimize2 className="h-4 w-4" /></button>
           <button data-testid="idea-chat-close-button" onClick={onClose} title="Tutup chat" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800" aria-label="Tutup chat"><X className="h-4 w-4" /></button>
         </div>
+        <span className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 text-gray-300"><GripHorizontal className="h-3 w-3" /></span>
       </header>
       <div className="flex-1 overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide space-y-3 bg-gradient-to-b from-gray-50 to-white p-5" data-testid="idea-chat-messages">
         {messages.map((message, index) => (
@@ -39,5 +67,5 @@ export const IdeaChatPopup = ({ messages, sessionId, provider, setProvider, inpu
         </div>
       </footer>
     </section>
-  </div>
-);
+  );
+};
