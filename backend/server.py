@@ -10,6 +10,7 @@ import base64
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Any, Dict, List
+from urllib.parse import quote
 
 import bcrypt
 import jwt
@@ -1037,14 +1038,19 @@ async def ocr_nota(body: OcrIn, user=Depends(get_current_user)):
 
 KAK_SECTIONS = ["1. Pendahuluan", "2. Deskripsi Program", "3. Landasan Hukum", "4. Tujuan Program",
                 "5. Sasaran & Target", "6. Tempat & Waktu Pelaksanaan", "7. Indikator Keberhasilan",
-                "8. Pelaksana & Penanggung Jawab", "9. Mekanisme Pelaksanaan", "10. Rencana Anggaran Biaya",
-                "11. Jadwal Kegiatan", "12. Penutup"]
+                "8. Pelaksana & Penanggung Jawab", "9. Mekanisme Pelaksanaan",
+                "10. Jadwal Kegiatan", "11. Penutup"]
 
 
 class KakIn(BaseModel):
     raw_text: str
     provider: str = "gemini"
     project_id: Optional[str] = None
+
+
+class KakManualIn(BaseModel):
+    title: str = ""
+    sections: List[Dict[str, str]] = []
 
 
 @api.post("/ai/kak")
@@ -1058,10 +1064,12 @@ async def generate_kak(body: KakIn, user=Depends(get_current_user)):
         raw = await llm_complete(system, f"Poin mentah kegiatan:\n{body.raw_text}", provider=prov, model=model)
         data = parse_llm_json(raw)
         if body.project_id:
-            await db.kaks.insert_one({"id": str(uuid.uuid4()), "project_id": body.project_id,
+            kak_id = str(uuid.uuid4())
+            await db.kaks.insert_one({"id": kak_id, "project_id": body.project_id,
                                       "title": data.get("title", ""), "sections": data.get("sections", []),
                                       "provider": prov, "created_by": user["id"],
                                       "created_at": datetime.now(timezone.utc).isoformat()})
+            data["id"] = kak_id
         return data
     except Exception as e:
         logger.error(f"KAK error: {e}")
@@ -1109,6 +1117,46 @@ async def list_kaks(pid: str, user=Depends(get_current_user)):
     return await db.kaks.find({"project_id": pid}, {"_id": 0}).sort("created_at", -1).to_list(50)
 
 
+def normalize_kak_sections(sections: List[Dict[str, str]]):
+    clean = []
+    for idx, section in enumerate(sections[:20]):
+        heading = str(section.get("heading", "") or "").strip()[:160]
+        body = str(section.get("body", "") or "").strip()
+        if not heading:
+            heading = f"{idx + 1}. Bagian KAK"
+        clean.append({"heading": heading, "body": body})
+    return clean
+
+
+@api.post("/projects/{pid}/kaks/manual")
+async def create_manual_kak(pid: str, body: KakManualIn, user=Depends(get_current_user)):
+    if user["role"] == "relawan":
+        raise HTTPException(403, "Relawan tidak dapat mengubah KAK")
+    await ensure_project_access(pid, user)
+    kak_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {"id": kak_id, "project_id": pid, "title": body.title.strip()[:200],
+           "sections": normalize_kak_sections(body.sections), "provider": "manual",
+           "created_by": user["id"], "created_at": now, "updated_at": now}
+    await db.kaks.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api.put("/projects/{pid}/kaks/{kid}")
+async def update_kak(pid: str, kid: str, body: KakManualIn, user=Depends(get_current_user)):
+    if user["role"] == "relawan":
+        raise HTTPException(403, "Relawan tidak dapat mengubah KAK")
+    await ensure_project_access(pid, user)
+    update = {"title": body.title.strip()[:200], "sections": normalize_kak_sections(body.sections),
+              "updated_by": user["id"], "updated_at": datetime.now(timezone.utc).isoformat()}
+    res = await db.kaks.update_one({"project_id": pid, "id": kid}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(404, "KAK tidak ditemukan")
+    updated = await db.kaks.find_one({"project_id": pid, "id": kid}, {"_id": 0})
+    return updated
+
+
 @api.get("/projects/{pid}/reports")
 async def list_reports(pid: str, user=Depends(get_current_user)):
     return await db.reports.find({"project_id": pid}, {"_id": 0}).sort("created_at", -1).to_list(50)
@@ -1130,7 +1178,6 @@ KAK_COMPONENT_LABELS = [
     "Indikator Keberhasilan",
     "Pelaksana & Penanggung Jawab",
     "Mekanisme Pelaksanaan",
-    "Rencana Anggaran Biaya",
     "Jadwal Kegiatan",
     "Penutup",
 ]
@@ -1163,6 +1210,12 @@ def _kak_rows(kak: dict):
 
 def _rab_total(items: list) -> int:
     return sum((it.get("qty", 0) or 0) * (it.get("frek", 0) or 0) * (it.get("harga", 0) or 0) for it in items)
+
+
+def _export_filename(prefix: str, name: str, ext: str) -> str:
+    clean = re.sub(r"[\\/:*?\"<>|]+", "", name or "Kegiatan").strip()[:120] or "Kegiatan"
+    filename = f"{prefix}-{clean}.{ext}"
+    return f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}'
 
 
 @api.get("/projects/{pid}/export/rab.xlsx")
@@ -1283,7 +1336,11 @@ async def export_kak_pdf(pid: str, user=Depends(get_current_user)):
     try:
         logo_response = requests.get("https://baznasbazisdki.id/assets/img/logo-dark-min.png", timeout=5)
         if logo_response.ok:
-            logo = ReportImage(io.BytesIO(logo_response.content), width=90, height=30)
+            logo = ReportImage(io.BytesIO(logo_response.content))
+            target_width = 92
+            ratio = logo.imageHeight / logo.imageWidth if logo.imageWidth else 0.35
+            logo.drawWidth = target_width
+            logo.drawHeight = target_width * ratio
             logo.hAlign = "CENTER"
             story.append(logo)
             story.append(Spacer(1, 8))
@@ -1297,7 +1354,7 @@ async def export_kak_pdf(pid: str, user=Depends(get_current_user)):
     kak_data = [["NO", "KOMPONEN", "PENJELASAN"]]
     for row in _kak_rows(kak):
         kak_data.append([str(row["no"]), Paragraph(f"<b>{escape(row['component'])}</b>", body_style), Paragraph(escape(row["explanation"] or "-"), body_style)])
-    kak_table = Table(kak_data, colWidths=[32, 145, 300], repeatRows=1)
+    kak_table = Table(kak_data, colWidths=[32, 102, 343], repeatRows=1)
     kak_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
@@ -1357,7 +1414,7 @@ async def export_kak_pdf(pid: str, user=Depends(get_current_user)):
     story.append(signer_table)
     doc.build(story)
     return Response(content=buf.getvalue(), media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="KAK-{pid[:8]}.pdf"'})
+                    headers={"Content-Disposition": _export_filename("KAK", project.get("name", "Kegiatan"), "pdf")})
 
 
 @api.get("/projects/{pid}/export/kak.docx")
@@ -1411,7 +1468,7 @@ async def export_kak_docx(pid: str, user=Depends(get_current_user)):
     document.save(buf)
     return Response(content=buf.getvalue(),
                     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    headers={"Content-Disposition": f'attachment; filename="KAK-{pid[:8]}.docx"'})
+                    headers={"Content-Disposition": _export_filename("KAK", project.get("name", "Kegiatan"), "docx")})
 
 
 async def _latest_report(pid: str):

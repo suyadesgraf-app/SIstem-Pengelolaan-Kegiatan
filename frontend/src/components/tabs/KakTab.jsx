@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ClipboardCheck, Printer, Sparkles } from "lucide-react";
+import { ClipboardCheck, Loader2, Printer, Save, Sparkles } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import ModelPicker from "@/components/ModelPicker";
 import { draftToKakText } from "@/components/tabs/IdeKegiatanTab";
@@ -22,7 +22,6 @@ const KAK_COMPONENTS = [
   "Indikator Keberhasilan",
   "Pelaksana & Penanggung Jawab",
   "Mekanisme Pelaksanaan",
-  "Rencana Anggaran Biaya",
   "Jadwal Kegiatan",
   "Penutup",
 ];
@@ -38,6 +37,12 @@ export default function KakTab({ project = null }) {
   const [history, setHistory] = useState([]);
   const [idea, setIdea] = useState(null);
   const [rabItems, setRabItems] = useState([]);
+  const [savingManual, setSavingManual] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [manualRows, setManualRows] = useState({});
+  const [manualTitle, setManualTitle] = useState("");
+  const manualRowsRef = useRef({});
+  const manualTitleRef = useRef("");
   const previewRef = useRef(null);
 
   const handlePreviewWheel = (event) => {
@@ -50,15 +55,30 @@ export default function KakTab({ project = null }) {
 
   useEffect(() => {
     if (!project?.id) return;
+    setLoadingHistory(true);
     api.get(`/projects/${project.id}/kaks`).then((r) => {
       setHistory(r.data);
-      if (r.data[0]) setDoc({ title: r.data[0].title, sections: r.data[0].sections });
-    }).catch(() => {});
+      if (r.data[0]) setDoc({ id: r.data[0].id, title: r.data[0].title, sections: r.data[0].sections });
+    }).catch(() => {}).finally(() => setLoadingHistory(false));
     api.get(`/projects/${project.id}/idea`).then((r) => {
       if (r.data.status === "submitted") setIdea(r.data.draft || null);
     }).catch(() => {});
     api.get(`/rab?project_id=${project.id}`).then((r) => setRabItems(r.data)).catch(() => {});
   }, [project?.id]);
+
+  useEffect(() => {
+    const sections = doc?.sections || [];
+    const rows = {};
+    KAK_COMPONENTS.forEach((component, index) => {
+      const normalized = normalizeHeading(component).replace("dan", "&");
+      const matched = sections.find((section) => normalizeHeading(section.heading).replace("dan", "&").includes(normalized));
+      rows[component] = matched?.body || sections[index]?.body || "";
+    });
+    setManualRows(rows);
+    manualRowsRef.current = rows;
+    setManualTitle(doc?.title || "");
+    manualTitleRef.current = doc?.title || "";
+  }, [doc?.id, doc?.sections, doc?.title, project?.id]);
 
   const officialRows = useMemo(() => {
     const sections = doc?.sections || [];
@@ -68,10 +88,10 @@ export default function KakTab({ project = null }) {
       return {
         no: index + 1,
         component,
-        explanation: matched?.body || sections[index]?.body || "",
+        explanation: manualRows[component] ?? matched?.body ?? sections[index]?.body ?? "",
       };
     });
-  }, [doc]);
+  }, [doc, manualRows]);
 
   const rabTotal = useMemo(
     () => rabItems.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.frek) || 0) * (Number(item.harga) || 0), 0),
@@ -98,6 +118,56 @@ export default function KakTab({ project = null }) {
       toast.error(formatApiError(e));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const buildSectionsFromRows = () => KAK_COMPONENTS.map((component, index) => ({
+    heading: `${index + 1}. ${component}`,
+    body: manualRowsRef.current[component] ?? "",
+  }));
+
+  const updateManualRow = (index, value) => {
+    const component = KAK_COMPONENTS[index];
+    manualRowsRef.current = { ...manualRowsRef.current, [component]: value };
+    setManualRows(manualRowsRef.current);
+  };
+
+  const updateManualTitle = (value) => {
+    manualTitleRef.current = value;
+    setManualTitle(value);
+  };
+
+  const saveManualKak = async () => {
+    if (!project?.id) return toast.warning("Kegiatan belum tersedia");
+    if (loadingHistory) return toast.warning("Tunggu data KAK selesai dimuat");
+    const liveRows = { ...manualRowsRef.current };
+    previewRef.current?.querySelectorAll("textarea[data-kak-component-index]").forEach((element) => {
+      const component = KAK_COMPONENTS[Number(element.dataset.kakComponentIndex)];
+      if (component) liveRows[component] = element.value;
+    });
+    const liveTitle = previewRef.current?.querySelector('[data-testid="kak-doc-subtitle-input"]')?.value ?? manualTitleRef.current;
+    manualRowsRef.current = liveRows;
+    manualTitleRef.current = liveTitle;
+    const payload = {
+      title: liveTitle || project?.name || "",
+      sections: KAK_COMPONENTS.map((component, index) => ({
+        heading: `${index + 1}. ${component}`,
+        body: liveRows[component] ?? "",
+      })),
+    };
+    setSavingManual(true);
+    try {
+      const response = doc?.id
+        ? await api.put(`/projects/${project.id}/kaks/${doc.id}`, payload)
+        : await api.post(`/projects/${project.id}/kaks/manual`, payload);
+      setDoc({ id: response.data.id, title: response.data.title, sections: response.data.sections });
+      const historyResponse = await api.get(`/projects/${project.id}/kaks`);
+      setHistory(historyResponse.data);
+      toast.success("Edit manual KAK tersimpan");
+    } catch (e) {
+      toast.error(formatApiError(e));
+    } finally {
+      setSavingManual(false);
     }
   };
 
@@ -140,7 +210,7 @@ export default function KakTab({ project = null }) {
               <button
                 key={h.id}
                 data-testid={`kak-history-${i}`}
-                onClick={() => setDoc({ title: h.title, sections: h.sections })}
+                onClick={() => setDoc({ id: h.id, title: h.title, sections: h.sections })}
                 className="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 hover:bg-emerald-50 text-gray-600 transition"
               >
                 v{history.length - i} • {new Date(h.created_at).toLocaleDateString("id-ID")} • {h.provider === "gemini" ? "Gemini" : "OpenAI"}
@@ -151,6 +221,15 @@ export default function KakTab({ project = null }) {
         <div className="flex justify-between items-center pt-4 border-t border-gray-100 flex-wrap gap-2">
           <span className="text-xs font-bold text-gray-500">Ekspor & Cetak:</span>
           <div className="flex space-x-2 flex-wrap gap-y-2">
+            <button
+              onClick={saveManualKak}
+              disabled={savingManual}
+              data-testid="kak-save-manual-button"
+              className="text-xs bg-amber-500 text-white hover:bg-amber-600 px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1 shadow-sm transition disabled:opacity-60"
+            >
+              {savingManual ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              <span>{savingManual ? "Menyimpan..." : "Simpan Edit KAK"}</span>
+            </button>
             <button
               onClick={() => window.print()} data-testid="kak-print-button"
               className="text-xs bg-emerald-700 text-white hover:bg-emerald-800 px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1 shadow-sm transition"
@@ -172,6 +251,11 @@ export default function KakTab({ project = null }) {
         data-testid="kak-preview"
         aria-label="Pratinjau dokumen KAK yang dapat digulir"
       >
+        {loadingHistory && (
+          <div className="absolute inset-0 z-20 bg-white/75 backdrop-blur-[1px] flex items-center justify-center rounded-xl no-print" data-testid="kak-preview-loading">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-700"><Loader2 className="w-4 h-4 animate-spin" /> Memuat KAK...</div>
+          </div>
+        )}
         <span className="absolute top-3 right-3 text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold font-sans no-print">
           {doc ? "KAK Resmi Disusun AI" : "Format Resmi BAZNAS"}
         </span>
@@ -185,8 +269,16 @@ export default function KakTab({ project = null }) {
           <h4 className="text-sm text-gray-950 uppercase font-extrabold tracking-wide" data-testid="kak-doc-title">
             {(project?.name || doc?.title || "NAMA KEGIATAN").toUpperCase()}
           </h4>
-          <p className="text-[11px] text-gray-600 mt-1" data-testid="kak-doc-subtitle">
-            {[doc?.title, project?.loc, project?.date].filter(Boolean).join(" • ") || "Keterangan kegiatan"}
+          <input
+            data-testid="kak-doc-subtitle-input"
+            value={manualTitle}
+            onChange={(e) => updateManualTitle(e.target.value)}
+            disabled={loadingHistory}
+            placeholder="Subjudul / keterangan KAK"
+            className="mt-1 w-full text-center text-[11px] text-gray-600 bg-transparent border-b border-dashed border-gray-200 focus:border-emerald-500 outline-none px-2 py-1"
+          />
+          <p className="text-[10px] text-gray-500 mt-1" data-testid="kak-doc-location-date">
+            {[project?.loc, project?.date].filter(Boolean).join(" • ") || "Keterangan kegiatan"}
           </p>
         </div>
 
@@ -194,7 +286,7 @@ export default function KakTab({ project = null }) {
           <thead>
             <tr className="bg-gray-100 text-gray-900 font-bold">
               <th className="border border-gray-500 px-2 py-2 w-10 text-center">NO</th>
-              <th className="border border-gray-500 px-2 py-2 w-44 text-left">KOMPONEN</th>
+              <th className="border border-gray-500 px-2 py-2 w-32 text-left">KOMPONEN</th>
               <th className="border border-gray-500 px-2 py-2 text-left">PENJELASAN</th>
             </tr>
           </thead>
@@ -203,8 +295,17 @@ export default function KakTab({ project = null }) {
               <tr key={row.no} data-testid={`kak-official-row-${row.no}`}>
                 <td className="border border-gray-500 px-2 py-2 text-center align-top font-semibold">{row.no}</td>
                 <td className="border border-gray-500 px-2 py-2 align-top font-semibold">{row.component}</td>
-                <td className="border border-gray-500 px-2 py-2 align-top text-gray-800 whitespace-pre-line min-h-8">
-                  {row.explanation || (doc ? "-" : "Belum di-generate")}
+                <td className="border border-gray-500 p-0 align-top text-gray-800 min-h-8">
+                  <textarea
+                    data-testid={`kak-manual-explanation-${row.no}`}
+                    data-kak-component-index={row.no - 1}
+                    value={row.explanation || ""}
+                    onChange={(e) => updateManualRow(row.no - 1, e.target.value)}
+                    onInput={(e) => updateManualRow(row.no - 1, e.currentTarget.value)}
+                    disabled={loadingHistory}
+                    placeholder={doc ? "Isi penjelasan..." : "Belum di-generate"}
+                    className="w-full min-h-[48px] resize-y bg-transparent px-2 py-2 text-[10px] leading-relaxed outline-none focus:bg-emerald-50/40"
+                  />
                 </td>
               </tr>
             ))}

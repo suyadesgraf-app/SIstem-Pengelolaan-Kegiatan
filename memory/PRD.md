@@ -92,6 +92,15 @@
 - Generate KAK, Generate Laporan Kegiatan, dan AI Auto-Input RAB kini meminta persetujuan pengguna melalui dialog konfirmasi sebelum memulai proses AI.
 - Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, Playwright memastikan teks branding baru tampil di login/header dan dialog persetujuan muncul sebelum generate KAK.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 27) — Penyempurnaan Preview dan Export KAK
+- Kolom `KOMPONEN` pada preview KAK diperkecil sekitar 30% sehingga kolom `PENJELASAN` lebih lebar dan nyaman dibaca.
+- Komponen/baris `Rencana Anggaran Biaya` dihapus dari tabel utama KAK; tabel RAB otomatis tetap berada sebagai bagian terpisah di bawah KAK.
+- Preview KAK kini dapat diedit manual langsung pada subjudul dan setiap kolom penjelasan, lalu disimpan ke database agar hasil export PDF/Word mengikuti edit terbaru.
+- Backend menambahkan endpoint manual KAK: `POST /api/projects/{pid}/kaks/manual` dan `PUT /api/projects/{pid}/kaks/{kid}` dengan akses terbatas PIC/Admin dan Super Admin.
+- Export PDF KAK memakai logo BAZNAS BAZIS dengan rasio proporsional, tidak lagi memaksa tinggi logo yang membuat tampilan tidak simetris.
+- Nama file export berubah menjadi `KAK-Nama Kegiatan.pdf` dan `KAK-Nama Kegiatan.docx`.
+- Verifikasi berhasil: `py_compile` backend OK, `yarn build` frontend OK, curl export PDF/Word valid dengan nama file kegiatan, Playwright memastikan tabel KAK berisi 11 komponen tanpa baris RAB, serta edit manual preview tersimpan dan terkonfirmasi via API. Data uji sudah dibersihkan.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
