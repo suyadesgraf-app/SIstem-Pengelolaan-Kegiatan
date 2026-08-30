@@ -35,6 +35,11 @@
 - Tab Laporan Kegiatan kini menyimpan dan menampilkan alert permanen `laporan-ai-error`, bukan hanya toast sementara, agar PIC tahu langkah pemulihan.
 - Catatan status: integrasi AI tetap NYATA dan tidak dimock; generate Laporan/KAK/OCR/Chat AI baru bisa berjalan lagi setelah saldo AI ditambah atau key AI diganti.
 
+## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 12) — Powered by Cheng Suya
+- Login page kini menampilkan kredit `Powered by Cheng Suya` dengan ikon Instagram yang membuka profil `cheng_suya` di tab baru.
+- Header/menu dashboard kini menampilkan kredit yang sama dalam bentuk chip ringkas agar tetap rapi di navigasi utama.
+- Komponen kredit dibuat reusable dengan data-testid unik untuk area login dan header.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 7) — Chat Ide Otomatis Terbuka
 - Saat pengguna membuka sub-tab "Buat Ide Kegiatan", popup Chat AI kini langsung tampil otomatis tanpa perlu tombol "Buka Chat AI".
 - Tombol/menu pembuka chat dihapus agar alur ide lebih cepat dan ruang draft tetap bersih.
@@ -115,6 +120,7 @@
 - Sesi 10 (penyempurnaan): Playwright memverifikasi rekomendasi pertanyaan tampil sebagai daftar tombol ringkas dan dapat dipilih dari popup Chat Ide.
 - Sesi 10 (preview dokumen): Playwright memverifikasi scroll lokal KAK berubah 0→960 dengan roda mouse. Untuk konten Laporan yang panjang, handler preview juga terverifikasi berubah 0→581; build frontend berhasil.
 - Sesi 11: py_compile backend OK, yarn build frontend OK. curl login PIC + POST `/api/ai/report` kini mengembalikan 402 dengan detail penyebab budget AI habis. Playwright login PIC → workspace → tab Laporan → generate menampilkan alert `laporan-ai-error` berisi instruksi tambah balance/auto top up.
+- Sesi 12: yarn build frontend berhasil. Playwright memverifikasi kredit tampil di login dan header dashboard, href sesuai link Instagram yang diminta, dan klik ikon/link membuka Instagram di tab baru.
 
 ## Backlog Prioritas
 - P0: Pulihkan saldo Universal Key AI atau ganti key AI agar generate Laporan/KAK/OCR/Chat AI berjalan kembali.

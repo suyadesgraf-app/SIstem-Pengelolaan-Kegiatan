@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatApiError } from "@/lib/api";
+import { PoweredByChengSuya } from "@/components/PoweredByChengSuya";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1689443111287-5c2e129ec756?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwyfHxncmVlbiUyMGdlb21ldHJpYyUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzg4MDIzODgxfDA&ixlib=rb-4.1.0&q=85";
 
@@ -173,6 +174,10 @@ export default function Login() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="mt-5 flex justify-start" data-testid="login-powered-by-section">
+            <PoweredByChengSuya />
           </div>
         </motion.div>
       </div>
