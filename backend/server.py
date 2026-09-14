@@ -767,7 +767,7 @@ def resolve_ai_api_key(provider: str):
 
 
 async def llm_complete(system: str, text: str, image_b64: Optional[str] = None,
-                       provider: str = "gemini", model: str = "gemini-3.1-pro-preview",
+                       provider: str = "openai", model: str = "gpt-5.4",
                        session_id: Optional[str] = None) -> str:
     api_key, _ = resolve_ai_api_key(provider)
     chat = LlmChat(api_key=api_key, session_id=session_id or str(uuid.uuid4()),
@@ -792,7 +792,7 @@ def parse_llm_json(raw: str):
     return json.loads(match.group(0))
 
 
-def raise_ai_http_error(err: Exception, action: str, provider: str = "gemini"):
+def raise_ai_http_error(err: Exception, action: str, provider: str = "openai"):
     message = str(err).lower()
     _, key_source = resolve_ai_api_key(provider)
     label = provider_label(provider)
@@ -827,13 +827,13 @@ class IdeaChatAttachmentIn(BaseModel):
 class IdeaChatIn(BaseModel):
     message: str
     session_id: str = ""
-    provider: str = "gemini"
+    provider: str = "openai"
     draft: Dict[str, Any] = {}
     attachments: List[IdeaChatAttachmentIn] = []
 
 
 class RabAiIn(BaseModel):
-    provider: str = "gemini"
+    provider: str = "openai"
 
 
 SBM_RATE_REFERENCES = [
@@ -1010,7 +1010,7 @@ async def generate_rab_from_idea(pid: str, body: RabAiIn, user=Depends(get_curre
 
 class OcrIn(BaseModel):
     image_base64: str
-    provider: str = "gemini"
+    provider: str = "openai"
 
 
 @api.post("/ai/ocr")
@@ -1044,7 +1044,7 @@ KAK_SECTIONS = ["1. Pendahuluan", "2. Deskripsi Program", "3. Landasan Hukum", "
 
 class KakIn(BaseModel):
     raw_text: str
-    provider: str = "gemini"
+    provider: str = "openai"
     project_id: Optional[str] = None
 
 
@@ -1080,7 +1080,7 @@ class ReportIn(BaseModel):
     nomor_indeks: str
     points: str
     kak_name: Optional[str] = None
-    provider: str = "gemini"
+    provider: str = "openai"
     project_id: Optional[str] = None
 
 

@@ -36,7 +36,7 @@ export default function IdeKegiatanTab({ project }) {
   const [input, setInput] = useState("");
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [status, setStatus] = useState("draft");
-  const [provider, setProvider] = useState("gemini");
+  const [provider, setProvider] = useState("openai");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [chatMinimized, setChatMinimized] = useState(false);

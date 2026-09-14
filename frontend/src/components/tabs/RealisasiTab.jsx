@@ -13,7 +13,7 @@ export default function RealisasiTab() {
   const [projects, setProjects] = useState([]);
   const [image, setImage] = useState(null);
   const [scanning, setScanning] = useState(false);
-  const [provider, setProvider] = useState("gemini");
+  const [provider, setProvider] = useState("openai");
   const [form, setForm] = useState({ merchant: "", nominal: "", tanggal: "", kegiatan: "" });
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});

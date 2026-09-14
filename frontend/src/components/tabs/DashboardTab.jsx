@@ -66,7 +66,7 @@ export default function DashboardTab() {
     ? activeProjects.filter((p) => p.status === "Menunggu" || p.slaDays > 0)
     : activeProjects;
 
-  const barData = activeProjects.map((p) => ({ name: p.name, Anggaran: p.plafon, Realisasi: p.realisasi }));
+  const barData = activeProjects.map((p) => ({ id: p.id, name: p.name, Anggaran: p.plafon, Realisasi: p.realisasi }));
   const maxBudget = Math.max(1, ...barData.flatMap((p) => [p.Anggaran || 0, p.Realisasi || 0]));
   const slaData = stats
     ? [
@@ -173,7 +173,7 @@ export default function DashboardTab() {
           <h3 className="font-heading font-bold text-gray-800 text-sm mb-4">Grafik Realisasi vs Anggaran</h3>
           <div className="chart-container min-w-0 overflow-y-auto pr-1 space-y-3" data-testid="chart-budget-vs-realization">
             {barData.map((p, i) => (
-              <div key={p.name} data-testid={`budget-chart-row-${i}`} className="space-y-1.5">
+              <div key={p.id} data-testid={`budget-chart-row-${i}`} className="space-y-1.5">
                 <div className="flex justify-between gap-3 text-[10px] font-bold text-gray-500">
                   <span className="truncate">{p.name}</span>
                   <span className="whitespace-nowrap">{fmtMiliar(p.Realisasi)} / {fmtMiliar(p.Anggaran)}</span>

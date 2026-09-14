@@ -24,7 +24,7 @@ export default function LaporanTab({ project = null, onProjectUpdate = null }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [savingIndex, setSavingIndex] = useState(false);
-  const [provider, setProvider] = useState("gemini");
+  const [provider, setProvider] = useState("openai");
   const [uploaded, setUploaded] = useState({});
   const [files, setFiles] = useState([]);
   const [activeLamp, setActiveLamp] = useState(null);

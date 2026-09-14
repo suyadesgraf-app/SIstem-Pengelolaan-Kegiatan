@@ -37,7 +37,7 @@ export default function RabTab({ projectId = "" }) {
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});
   const [idea, setIdea] = useState(null);
-  const [provider, setProvider] = useState("gemini");
+  const [provider, setProvider] = useState("openai");
   const [aiLoading, setAiLoading] = useState(false);
 
   const load = useCallback(() => api.get(`/rab?project_id=${projectId}`).then((r) => setItems(r.data)).catch(() => {}), [projectId]);

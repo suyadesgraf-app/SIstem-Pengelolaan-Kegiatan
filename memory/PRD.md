@@ -117,6 +117,20 @@
 - File komponen `RegistrationFlow.jsx` ikut dihapus agar kode tetap bersih.
 - Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan elemen `Alur Pendaftaran` tidak muncul lagi di Dashboard.
 
+## Yang Sudah Diimplementasikan (14 September 2026, sesi 31) — OpenAI sebagai Pilihan AI Utama
+- API key OpenAI milik pengguna disimpan hanya pada konfigurasi backend dan tidak dikirim ke frontend atau response API.
+- OpenAI menjadi pilihan default di Chat Ide, Auto-RAB, KAK, Laporan Kegiatan, OCR PIC legacy, dan OCR Relawan; pilihan Gemini tetap tersedia.
+- Model OpenAI dibagi sesuai kebutuhan: `gpt-5.4` untuk dokumen/chat/RAB dan `gpt-5.4-mini` untuk OCR nota.
+- Verifikasi kode berhasil: `py_compile`, `yarn build`, dan Playwright memastikan OpenAI aktif sebagai default serta Gemini tetap dapat dipilih.
+- Integrasi OpenAI NYATA dan tidak dimock. Uji KAK serta OCR sudah mencapai API OpenAI, tetapi saat ini mengembalikan HTTP 402 karena akun OpenAI pada key tersebut tidak memiliki kredit.
+
+## Yang Sudah Diimplementasikan (14 September 2026, sesi 32) — Favicon Garuda
+- Gambar Garuda Pancasila yang diberikan pengguna diproses menjadi favicon persegi transparan agar tetap jelas pada ukuran kecil.
+- Aset favicon tersedia dalam format ICO dan PNG 64/192/512, termasuk `apple-touch-icon` untuk perangkat seluler.
+- Metadata tab diperbarui dengan favicon baru, warna tema hijau BAZNAS, Bahasa Indonesia, deskripsi aplikasi, dan judul `Sistem Integrasi Pengelolaan Kegiatan Berbasis AI`.
+- Warning React akibat key nama kegiatan yang duplikat pada grafik dashboard juga diperbaiki dengan memakai ID kegiatan yang unik.
+- Verifikasi berhasil: `yarn build` sukses, favicon publik dapat diakses sebagai PNG 64×64, dan browser membaca metadata favicon serta judul tab baru.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
@@ -231,5 +245,6 @@
 - P0 (SELESAI): Fungsi AI pulih via fallback Universal Key untuk Gemini. Saat GEMINI_API_KEY pengguna aktif, set GEMINI_USE_EMERGENT_FALLBACK=False.
 - P0 (SELESAI): Fitur hapus kegiatan untuk PIC/Admin dan Super Admin.
 - P1: Notifikasi Nota Baru ke PIC saat relawan menyimpan nota.
+- P1: Aktifkan kredit/billing akun OpenAI agar `gpt-5.4` dan `gpt-5.4-mini` dapat menghasilkan respons nyata.
 - P2: Offline queue PWA untuk blank spot, tanda tangan digital, filter/cari realisasi lanjutan, multi-kegiatan per RAB, opsi mobile native Expo/React Native di atas API yang sudah ada.
 - P2: Cetak Label Arsip PDF per kegiatan dengan QR code.
