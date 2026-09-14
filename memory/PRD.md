@@ -106,6 +106,12 @@
 - Tombol `Simpan Edit KAK` dan input subjudul manual dihapus dari UI preview KAK.
 - Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan preview KAK tidak lagi memiliki textarea maupun tombol simpan edit, serta 11 cell penjelasan tampil sebagai teks.
 
+## Yang Sudah Diimplementasikan (14 September 2026, sesi 29) — Tampilan Alur Pendaftaran
+- Dashboard kini memiliki blok visual `Alur Pendaftaran` bergaya hijau seperti referensi pengguna, berisi 11 tahap: Pembuatan Akun sampai Pencairan Bantuan Tahap II.
+- Setiap kartu hanya menampilkan nama tahap dan nomor besar; keterangan detail hanya muncul saat kursor diarahkan/hover atau saat kartu mendapat fokus.
+- Panah proses ditambahkan antar tahap dengan urutan 01 → 02 → 03 dan seterusnya, termasuk panah turun pada akhir baris serta versi mobile satu kolom.
+- Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan 11 tahap tampil, 10 panah desktop tersedia, dan tooltip muncul saat hover.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.

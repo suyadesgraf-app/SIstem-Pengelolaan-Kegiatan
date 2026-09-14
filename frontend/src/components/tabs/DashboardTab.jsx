@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import ProjectCard from "@/components/ProjectCard";
+import RegistrationFlow from "@/components/RegistrationFlow";
 
 const SLA_COLORS = ["#10b981", "#fbbf24", "#ef4444"];
 const COMPLETED_STATUSES = ["Selesai", "Diverifikasi"];
@@ -110,6 +111,8 @@ export default function DashboardTab() {
           </div>
         </motion.div>
       </div>
+
+      <RegistrationFlow />
 
       <div className="flex justify-between items-center mb-2 mt-4 flex-wrap gap-2">
         <h2 className="font-heading text-lg font-bold text-gray-800" data-testid="active-projects-heading">Kegiatan Dalam Proses</h2>
