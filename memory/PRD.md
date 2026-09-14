@@ -112,6 +112,11 @@
 - Panah proses ditambahkan antar tahap dengan urutan 01 → 02 → 03 dan seterusnya, termasuk panah turun pada akhir baris serta versi mobile satu kolom.
 - Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan 11 tahap tampil, 10 panah desktop tersedia, dan tooltip muncul saat hover.
 
+## Yang Sudah Diimplementasikan (14 September 2026, sesi 30) — Hapus Alur Pendaftaran
+- Blok visual `Alur Pendaftaran` dihapus dari Dashboard sesuai permintaan pengguna.
+- File komponen `RegistrationFlow.jsx` ikut dihapus agar kode tetap bersih.
+- Verifikasi berhasil: `yarn build` sukses dan Playwright memastikan elemen `Alur Pendaftaran` tidak muncul lagi di Dashboard.
+
 ## Yang Sudah Diimplementasikan (30 Agustus 2026, sesi 11) — RCA Gagal Generate Laporan AI
 - Penyebab gagal generate Laporan Kegiatan ditemukan dari log backend: provider AI menolak permintaan karena saldo/budget Universal Key sudah habis (`Budget has been exceeded`), sehingga endpoint `/api/ai/report` sebelumnya mengembalikan error generik 500.
 - Backend AI kini mengklasifikasikan error budget menjadi HTTP 402 dengan pesan aksi yang jelas; error rate limit menjadi HTTP 429; error lain tetap memakai pesan fallback sesuai fitur.
